@@ -32,6 +32,7 @@ type RoomData = {
   currentTurn: string
   players: Record<string, PlayerData>
   matchCode?: string
+  hostId: string // Added hostId
 }
 
 export default function SpeedryConquest() {
@@ -108,13 +109,18 @@ export default function SpeedryConquest() {
     const newRoomId = roomRef.key
 
     if (newRoomId) {
-      // Generate a 6-character unique code
-      const code = newRoomId.substring(0, 6).toUpperCase()
+      // Generate a 6-character unique alphanumeric code
+      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed I, O, 1, 0 for clarity
+      let code = ""
+      for (let i = 0; i < 6; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
 
       await set(roomRef, {
         gameState: "lobby",
         currentTurn: playerId,
         matchCode: code,
+        hostId: playerId, // Use this to track host
         players: {
           [playerId]: {
             lives: 2,
@@ -128,7 +134,9 @@ export default function SpeedryConquest() {
 
       setRoomId(newRoomId)
       setMatchCode(code)
-      setScreen("createMatch")
+      setRoomId(newRoomId)
+      setMatchCode(code)
+      setScreen("lobby")
     }
   }
 
@@ -196,13 +204,7 @@ export default function SpeedryConquest() {
             onJoinMatch={() => setScreen("joinMatch")}
           />
         )}
-        {screen === "createMatch" && matchCode && roomId && (
-          <CreateMatchScreen
-            matchCode={matchCode}
-            onWaitForOpponent={() => setScreen("lobby")}
-            onBack={() => setScreen("menu")}
-          />
-        )}
+
         {screen === "joinMatch" && <JoinMatchScreen onJoinMatch={handleJoinMatch} onBack={() => setScreen("menu")} />}
         {screen === "levelSelect" && (
           <LevelSelectScreen bestLevel={bestLevel} onSelectLevel={handleStartGame} onBack={() => setScreen("menu")} />
@@ -1024,12 +1026,8 @@ function LobbyScreen({
       const data = snapshot.val() as RoomData
       setRoomData(data)
 
-      if (data && data.gameState === "lobby") {
-        const players = Object.values(data.players)
-        if (players.length === 2 && players.every((p) => p.isReady)) {
-          update(ref(database, `rooms/${roomId}`), { gameState: "playing" })
-          onStartGame()
-        }
+      if (data && data.gameState === "playing") {
+        onStartGame()
       }
     })
 
@@ -1044,26 +1042,40 @@ function LobbyScreen({
     })
   }
 
+  const handleStartMatch = async () => {
+    await update(ref(database, `rooms/${roomId}`), { gameState: "playing" })
+  }
+
   const playersList = roomData ? Object.entries(roomData.players) : []
-  const isHost = playersList[0]?.[0] === playerId
-  const canStart = playersList.length === 2
+  // Robust host check: use hostId if available, fallback to first player
+  const isHost = roomData?.hostId === playerId || (!roomData?.hostId && playersList[0]?.[0] === playerId)
+  const canStart = playersList.length === 2 && playersList.every(([_, p]) => p.isReady)
 
   return (
     <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-black text-[#1e293b] mb-2">GAME LOBBY</h1>
-        <p className="text-sm text-[#64748b] font-semibold">Room ID: {roomId}</p>
+        <p className="text-sm text-[#64748b] font-semibold">
+          Room ID: <span className="font-mono text-[#3b82f6] text-lg bg-white px-2 py-1 rounded-md shadow-sm ml-1 select-all">{roomData?.matchCode || roomId}</span>
+        </p>
       </div>
 
       <div className="space-y-4 mb-8">
         {playersList.map(([id, player], index) => (
           <div key={id} className="bg-white rounded-2xl p-6 flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-full flex items-center justify-center">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-full flex items-center justify-center relative">
                 <Users className="w-7 h-7 text-white" />
+                {roomData?.hostId === id && (
+                  <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1 border-2 border-white" title="Host">
+                    <Trophy className="w-3 h-3 text-white" />
+                  </div>
+                )}
               </div>
               <div>
-                <p className="font-black text-lg text-[#1e293b]">{id === playerId ? "You" : `Player ${index + 1}`}</p>
+                <p className="font-black text-lg text-[#1e293b]">
+                  {id === playerId ? "You" : player.name || `Player ${index + 1}`}
+                </p>
                 <p className="text-sm text-[#64748b] font-semibold">
                   {player.lives} Lives • Level {player.currentLevel}
                 </p>
@@ -1071,12 +1083,12 @@ function LobbyScreen({
             </div>
             <div>
               {player.isReady ? (
-                <div className="flex items-center gap-2 bg-[#10b981] text-white px-4 py-2 rounded-full font-bold">
+                <div className="flex items-center gap-2 bg-[#10b981] text-white px-4 py-2 rounded-full font-bold shadow-sm animate-in zoom-in">
                   <Check className="w-5 h-5" />
                   READY
                 </div>
               ) : (
-                <div className="flex items-center gap-2 bg-[#fbbf24] text-white px-4 py-2 rounded-full font-bold">
+                <div className="flex items-center gap-2 bg-[#fbbf24] text-white px-4 py-2 rounded-full font-bold shadow-sm">
                   <Clock className="w-5 h-5" />
                   WAITING
                 </div>
@@ -1086,10 +1098,11 @@ function LobbyScreen({
         ))}
 
         {playersList.length < 2 && (
-          <div className="bg-white/50 rounded-2xl p-6 flex items-center justify-center border-2 border-dashed border-[#cbd5e1]">
+          <div className="bg-white/50 rounded-2xl p-6 flex items-center justify-center border-2 border-dashed border-[#cbd5e1] animate-pulse">
             <div className="text-center">
               <Loader2 className="w-8 h-8 text-[#64748b] animate-spin mx-auto mb-2" />
-              <p className="text-[#64748b] font-bold">Waiting for opponent...</p>
+              <p className="text-[#64748b] font-bold">Waiting for opponent to join...</p>
+              <p className="text-xs text-[#94a3b8] mt-1">Share the Match Code above</p>
             </div>
           </div>
         )}
@@ -1098,19 +1111,36 @@ function LobbyScreen({
       <div className="space-y-3">
         <Button
           onClick={handleToggleReady}
-          disabled={!canStart}
           className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${isReady
-            ? "bg-[#64748b] hover:bg-[#475569]"
-            : "bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857]"
+            ? "bg-[#64748b] hover:bg-[#475569] text-white"
+            : "bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white"
             }`}
         >
-          {isReady ? "NOT READY" : "START GAME"}
+          {isReady ? "NOT READY" : "I'M READY!"}
         </Button>
+
+        {isHost && (
+          <Button
+            onClick={handleStartMatch}
+            disabled={!canStart}
+            className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${canStart
+              ? "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:scale-[1.02] animate-pulse"
+              : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}
+          >
+            START MATCH
+          </Button>
+        )}
+
+        {!isHost && isReady && canStart && (
+          <div className="text-center text-[#64748b] font-bold animate-pulse">
+            Waiting for Host to start...
+          </div>
+        )}
 
         <Button
           onClick={onBack}
           variant="outline"
-          className="w-full font-bold text-lg py-6 rounded-2xl h-auto border-2 bg-transparent"
+          className="w-full font-bold text-lg py-6 rounded-2xl h-auto border-2 bg-transparent mt-2"
         >
           LEAVE LOBBY
         </Button>
@@ -1272,7 +1302,8 @@ function MultiplayerGameplay({
   const cardCount = gridSize * 3
   const pairCount = cardCount / 2
   const pairsCount = 1 + level
-  const [timer, setTimer] = useState(6 + pairsCount * 3)
+  const [timeLeft, setTimeLeft] = useState(6 + pairsCount * 3)
+  const [targetTime, setTargetTime] = useState<number | null>(null)
 
   const [cards, setCards] = useState<Card[]>([])
   const [flippedIndices, setFlippedIndices] = useState<number[]>([])
@@ -1284,22 +1315,31 @@ function MultiplayerGameplay({
     initializeCards()
   }, [level])
 
+  // Timer Effect
   useEffect(() => {
-    if (isPaused || hintTimer !== null) return
+    if (isPaused || hintTimer !== null || !targetTime) return
 
     const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          onLevelFail()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+      const remaining = Math.ceil((targetTime - Date.now()) / 1000)
+      setTimeLeft(remaining)
+
+      if (remaining <= 0) {
+        clearInterval(interval)
+        onLevelFail()
+      }
+    }, 100)
 
     return () => clearInterval(interval)
-  }, [isPaused, hintTimer, onLevelFail])
+  }, [isPaused, hintTimer, targetTime, onLevelFail])
+
+  // Resume timer when hint ends
+  useEffect(() => {
+    if (hintTimer === null && !isPaused && timeLeft > 0) {
+      setTargetTime(Date.now() + timeLeft * 1000)
+    } else if (hintTimer !== null) {
+      setTargetTime(null)
+    }
+  }, [hintTimer])
 
   useEffect(() => {
     if (hintTimer !== null && hintTimer > 0) {
@@ -1319,7 +1359,11 @@ function MultiplayerGameplay({
     setCards(shuffled.map((value, id) => ({ id, value, matched: false, flipped: false })))
     setFlippedIndices([])
     setStreak(0)
-    setTimer(6 + pairsCount * 3)
+
+    const duration = 6 + pairsCount * 3
+    setTimeLeft(duration)
+    setTargetTime(Date.now() + duration * 1000)
+    setIsPaused(false)
   }
 
   const handleCardClick = (index: number) => {
@@ -1442,14 +1486,17 @@ function MultiplayerGameplay({
             HINT
           </button>
           <div className="flex-1 bg-gradient-to-l from-[#ef4444] to-[#dc2626] text-white font-black text-xl py-4 flex items-center justify-center">
-            {hintTimer !== null ? `${hintTimer}s` : formatTime(timer)}
+            {hintTimer !== null ? `${hintTimer}s` : formatTime(timeLeft)}
           </div>
         </div>
       </div>
 
       <div className="flex rounded-2xl overflow-hidden shadow-lg mb-4">
         <button
-          onClick={() => setIsPaused(false)}
+          onClick={() => {
+            setIsPaused(false)
+            setTargetTime(Date.now() + timeLeft * 1000) // Resume logic
+          }}
           className={`flex-1 font-black text-2xl py-4 transition-all ${!isPaused
             ? "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white scale-105"
             : "bg-[#cbd5e1] text-[#64748b]"
@@ -1458,7 +1505,10 @@ function MultiplayerGameplay({
           PLAY
         </button>
         <button
-          onClick={() => setIsPaused(true)}
+          onClick={() => {
+            setIsPaused(true)
+            setTargetTime(null) // Pause logic
+          }}
           className={`flex-1 font-black text-2xl py-4 transition-all ${isPaused
             ? "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white scale-105"
             : "bg-[#cbd5e1] text-[#64748b]"
@@ -1473,62 +1523,7 @@ function MultiplayerGameplay({
   )
 }
 
-function CreateMatchScreen({
-  matchCode,
-  onWaitForOpponent,
-  onBack,
-}: {
-  matchCode: string
-  onWaitForOpponent: () => void
-  onBack: () => void
-}) {
-  const [copied, setCopied] = useState(false)
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(matchCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-black text-[#1e293b] mb-2">MATCH CREATED!</h1>
-        <p className="text-sm text-[#64748b] font-semibold">Share this code with your opponent</p>
-      </div>
-
-      <div className="bg-white rounded-2xl p-8 mb-6 shadow-lg">
-        <p className="text-center text-[#64748b] font-bold mb-3">MATCH CODE</p>
-        <div className="text-center">
-          <p className="text-6xl font-black text-[#3b82f6] tracking-wider mb-4">{matchCode}</p>
-          <Button
-            onClick={copyToClipboard}
-            className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-bold px-8 py-3 rounded-xl"
-          >
-            {copied ? "COPIED!" : "COPY CODE"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <Button
-          onClick={onWaitForOpponent}
-          className="w-full bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white font-black text-xl py-7 rounded-2xl shadow-lg h-auto"
-        >
-          WAIT FOR OPPONENT
-        </Button>
-
-        <Button
-          onClick={onBack}
-          variant="outline"
-          className="w-full font-bold text-lg py-6 rounded-2xl h-auto border-2 bg-transparent"
-        >
-          CANCEL
-        </Button>
-      </div>
-    </div>
-  )
-}
 
 function JoinMatchScreen({
   onJoinMatch,
