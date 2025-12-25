@@ -62,6 +62,9 @@ export default function SpeedryConquest() {
       localStorage.setItem("speedry_player_id", newPlayerId)
     }
 
+    const savedXp = localStorage.getItem("speedry_xp")
+    if (savedXp) setXp(Number.parseInt(savedXp))
+
     if (!hasSeenWelcome) {
       setScreen('welcome')
     } else {
@@ -70,6 +73,10 @@ export default function SpeedryConquest() {
 
     setIsLoading(false)
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem("speedry_xp", xp.toString())
+  }, [xp])
 
   const handleStartGame = (startLevel: number) => {
     setLevel(startLevel)
@@ -158,6 +165,20 @@ export default function SpeedryConquest() {
 
             // Check if room is available
             if (roomData.gameState === "lobby" && Object.keys(roomData.players).length < 2) {
+
+              // PREVENT SELF-JOIN (Fix Desync)
+              if (roomData.players[playerId]) {
+                // User is already in the room. Just rejoin as themselves.
+                // This handles the "refresh/rejoin" case legitimately, 
+                // BUT if they are trying to play against themselves in same browser,
+                // this prevents the "Player 2" overwrite that causes desync.
+                // We simply load the lobby.
+                setRoomId(foundRoomId)
+                setScreen("lobby")
+                // Do NOT update player data (don't reset NAME/LIVES of existing player)
+                return
+              }
+
               await update(ref(database, `rooms/${foundRoomId}/players/${playerId}`), {
                 lives: 2,
                 isReady: false,
@@ -226,6 +247,8 @@ export default function SpeedryConquest() {
             roomData={roomData}
             setRoomData={setRoomData}
             onGameEnd={() => setScreen("menu")}
+            xp={xp}
+            onXpChange={setXp}
           />
         )}
         {screen === "game" && (
@@ -1155,25 +1178,34 @@ function MultiplayerGameScreen({
   roomData,
   setRoomData,
   onGameEnd,
+  xp,
+  onXpChange,
 }: {
   roomId: string
   playerId: string
   roomData: RoomData
-  setRoomData: (data: RoomData) => void
+  setRoomData: (data: RoomData | null) => void
   onGameEnd: () => void
+  xp: number
+  onXpChange: (newXp: number) => void
 }) {
   const [showTurnModal, setShowTurnModal] = useState(false)
-  const currentPlayerData = roomData.players[playerId]
-  const isMyTurn = roomData.currentTurn === playerId
-  const opponentId = Object.keys(roomData.players).find((id) => id !== playerId)
-  const opponentData = opponentId ? roomData.players[opponentId] : null
+  const isMyTurn = roomData?.currentTurn === playerId
+  const opponentId = Object.keys(roomData?.players || {}).find((id) => id !== playerId)
+  const opponentData = opponentId ? roomData?.players[opponentId] : null
 
+  // Listen for room updates
   useEffect(() => {
     const roomRef = ref(database, `rooms/${roomId}`)
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val() as RoomData
+      setRoomData(data)
+
       if (data) {
-        setRoomData(data)
+        // Check for Turn Change
+        if (data.currentTurn === playerId && !isMyTurn) {
+          setShowTurnModal(true)
+        }
 
         const players = Object.entries(data.players)
         const loser = players.find(([_, p]) => p.lives === 0)
@@ -1181,107 +1213,117 @@ function MultiplayerGameScreen({
           update(ref(database, `rooms/${roomId}`), { gameState: "finished" })
           onGameEnd()
         }
-
-        if (data.currentTurn === playerId && !isMyTurn) {
-          setShowTurnModal(true)
-          setTimeout(() => setShowTurnModal(false), 2000)
-        }
       }
     })
 
     return () => unsubscribe()
-  }, [roomId, playerId, setRoomData, onGameEnd, isMyTurn])
+  }, [roomId, playerId, setRoomData, isMyTurn, onGameEnd])
 
-  const handleLevelComplete = async () => {
-    await update(ref(database, `rooms/${roomId}/players/${playerId}`), {
-      currentLevel: currentPlayerData.currentLevel + 1,
-      score: currentPlayerData.score + 10,
-    })
-  }
+  if (!roomData) return null
 
-  const handleLevelFail = async () => {
-    const newLives = currentPlayerData.lives - 1
-
-    await update(ref(database, `rooms/${roomId}/players/${playerId}`), {
-      lives: newLives,
-    })
-
-    if (newLives > 0 && opponentId) {
-      await update(ref(database, `rooms/${roomId}`), {
-        currentTurn: opponentId,
-      })
-    }
-  }
-
-  if (!isMyTurn) {
+  // Turn Modal Logic
+  if (showTurnModal) {
     return (
-      <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
-        <div className="text-center space-y-6">
-          <div className="w-24 h-24 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-full flex items-center justify-center mx-auto animate-pulse">
-            <Users className="w-12 h-12 text-white" />
-          </div>
-          <h2 className="text-3xl font-black text-[#1e293b]">OPPONENT IS PLAYING...</h2>
-
-          {opponentData && (
-            <div className="bg-white rounded-2xl p-6 shadow-lg">
-              <p className="text-[#64748b] font-bold mb-2">Opponent Status</p>
-              <div className="flex justify-around text-center">
-                <div>
-                  <p className="text-4xl font-black text-[#3b82f6]">{opponentData.lives}</p>
-                  <p className="text-sm font-semibold text-[#64748b]">Lives</p>
-                </div>
-                <div>
-                  <p className="text-4xl font-black text-[#8b5cf6]">{opponentData.currentLevel}</p>
-                  <p className="text-sm font-semibold text-[#64748b]">Level</p>
-                </div>
-                <div>
-                  <p className="text-4xl font-black text-[#10b981]">{opponentData.score}</p>
-                  <p className="text-sm font-semibold text-[#64748b]">Score</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <p className="text-[#64748b] font-bold mb-2">Your Status</p>
-            <div className="flex justify-around text-center">
-              <div>
-                <p className="text-4xl font-black text-[#3b82f6]">{currentPlayerData.lives}</p>
-                <p className="text-sm font-semibold text-[#64748b]">Lives</p>
-              </div>
-              <div>
-                <p className="text-4xl font-black text-[#8b5cf6]">{currentPlayerData.currentLevel}</p>
-                <p className="text-sm font-semibold text-[#64748b]">Level</p>
-              </div>
-              <div>
-                <p className="text-4xl font-black text-[#10b981]">{currentPlayerData.score}</p>
-                <p className="text-sm font-semibold text-[#64748b]">Score</p>
-              </div>
-            </div>
-          </div>
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-in fade-in">
+        <div className="bg-white rounded-3xl p-8 text-center max-w-sm mx-4 shadow-2xl animate-in zoom-in-50">
+          <Zap className="w-16 h-16 text-[#eab308] mx-auto mb-4 animate-bounce" />
+          <h2 className="text-4xl font-black text-[#1e293b] mb-2">YOUR TURN!</h2>
+          <p className="text-[#64748b] font-bold mb-6">Opponent failed. It's up to you!</p>
+          <Button
+            onClick={() => setShowTurnModal(false)}
+            className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-xl py-6 rounded-2xl"
+          >
+            LET'S GO
+          </Button>
         </div>
       </div>
     )
   }
 
+  if (!isMyTurn) {
+    return <OpponentIsPlaying opponentData={opponentData} myData={roomData.players[playerId]} />
+  }
+
   return (
-    <>
-      {showTurnModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-in fade-in duration-300">
-          <div className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-3xl p-12 shadow-2xl animate-in zoom-in duration-500">
-            <h1 className="text-6xl font-black text-white text-center">YOUR TURN!</h1>
+    <MultiplayerGameplay
+      level={roomData.players[playerId].currentLevel}
+      lives={roomData.players[playerId].lives}
+      onLevelComplete={async (newLevel) => {
+        await update(ref(database, `rooms/${roomId}/players/${playerId}`), {
+          currentLevel: newLevel,
+          score: roomData.players[playerId].score + 100, // Score logic
+        })
+      }}
+      onLevelFail={async () => {
+        const newLives = roomData.players[playerId].lives - 1
+        const updates: any = {
+          [`rooms/${roomId}/players/${playerId}/lives`]: newLives
+        }
+
+        if (newLives > 0 && opponentId) {
+          updates[`rooms/${roomId}/currentTurn`] = opponentId
+        } else if (newLives <= 0) {
+          // Game Over logic (Loss)
+          updates[`rooms/${roomId}/gameState`] = "finished"
+          // Ideally set winner?
+        }
+        await update(ref(database), updates)
+      }}
+      opponentData={opponentData}
+      xp={xp}
+      onXpChange={onXpChange}
+    />
+  )
+}
+
+function OpponentIsPlaying({ opponentData, myData }: { opponentData: PlayerData | null, myData: PlayerData }) {
+  return (
+    <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
+      <div className="text-center space-y-6">
+        <div className="w-24 h-24 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-full flex items-center justify-center mx-auto animate-pulse">
+          <Users className="w-12 h-12 text-white" />
+        </div>
+        <h2 className="text-3xl font-black text-[#1e293b]">OPPONENT IS PLAYING...</h2>
+
+        {opponentData && (
+          <div className="bg-white rounded-2xl p-6 shadow-lg">
+            <p className="text-[#64748b] font-bold mb-2">Opponent Status</p>
+            <div className="flex justify-around text-center">
+              <div>
+                <p className="text-4xl font-black text-[#3b82f6]">{opponentData.lives}</p>
+                <p className="text-sm font-semibold text-[#64748b]">Lives</p>
+              </div>
+              <div>
+                <p className="text-4xl font-black text-[#8b5cf6]">{opponentData.currentLevel}</p>
+                <p className="text-sm font-semibold text-[#64748b]">Level</p>
+              </div>
+              <div>
+                <p className="text-4xl font-black text-[#10b981]">{opponentData.score}</p>
+                <p className="text-sm font-semibold text-[#64748b]">Score</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <p className="text-[#64748b] font-bold mb-2">Your Status</p>
+          <div className="flex justify-around text-center">
+            <div>
+              <p className="text-4xl font-black text-[#3b82f6]">{myData.lives}</p>
+              <p className="text-sm font-semibold text-[#64748b]">Lives</p>
+            </div>
+            <div>
+              <p className="text-4xl font-black text-[#8b5cf6]">{myData.currentLevel}</p>
+              <p className="text-sm font-semibold text-[#64748b]">Level</p>
+            </div>
+            <div>
+              <p className="text-4xl font-black text-[#10b981]">{myData.score}</p>
+              <p className="text-sm font-semibold text-[#64748b]">Score</p>
+            </div>
           </div>
         </div>
-      )}
-
-      <MultiplayerGameplay
-        level={currentPlayerData.currentLevel}
-        lives={currentPlayerData.lives}
-        opponentData={opponentData}
-        onLevelComplete={handleLevelComplete}
-        onLevelFail={handleLevelFail}
-      />
-    </>
+      </div>
+    </div>
   )
 }
 
@@ -1291,14 +1333,18 @@ function MultiplayerGameplay({
   opponentData,
   onLevelComplete,
   onLevelFail,
+  xp,
+  onXpChange,
 }: {
   level: number
   lives: number
-  opponentData: PlayerData | null
-  onLevelComplete: () => void
+  opponentData: PlayerData | null | undefined
+  onLevelComplete: (newLevel: number) => void
   onLevelFail: () => void
+  xp: number
+  onXpChange: (newXp: number) => void
 }) {
-  const gridSize = Math.min(4 + Math.floor(level / 2), 6)
+  const gridSize = Math.min(6, 2 + Math.floor(level / 2)) * 2
   const cardCount = gridSize * 3
   const pairCount = cardCount / 2
   const pairsCount = 1 + level
@@ -1339,27 +1385,29 @@ function MultiplayerGameplay({
     } else if (hintTimer !== null) {
       setTargetTime(null)
     }
-  }, [hintTimer])
+  }, [hintTimer, isPaused, timeLeft])
 
   useEffect(() => {
     if (hintTimer !== null && hintTimer > 0) {
-      const timeout = setTimeout(() => setHintTimer(hintTimer - 1), 1000)
-      return () => clearTimeout(timeout)
+      const timer = setTimeout(() => {
+        setHintTimer((prev) => (prev !== null ? prev - 1 : null))
+      }, 1000)
+      return () => clearTimeout(timer)
     } else if (hintTimer === 0) {
+      setCards(prev => prev.map(c => !c.matched ? { ...c, flipped: false } : c))
       setHintTimer(null)
-      const newCards = cards.map((card) => ({ ...card, flipped: card.matched }))
-      setCards(newCards)
     }
-  }, [hintTimer, cards])
+  }, [hintTimer])
 
   const initializeCards = () => {
-    const values = Array.from({ length: pairCount }, (_, i) => i + 1)
-    const cardValues = [...values, ...values]
-    const shuffled = cardValues.sort(() => Math.random() - 0.5)
+    const numbers = Array.from({ length: pairCount }, (_, i) => i + 1)
+    const deck = [...numbers, ...numbers]
+    const shuffled = deck.sort(() => Math.random() - 0.5)
     setCards(shuffled.map((value, id) => ({ id, value, matched: false, flipped: false })))
     setFlippedIndices([])
     setStreak(0)
 
+    // Timer logic
     const duration = 6 + pairsCount * 3
     setTimeLeft(duration)
     setTargetTime(Date.now() + duration * 1000)
@@ -1367,51 +1415,66 @@ function MultiplayerGameplay({
   }
 
   const handleCardClick = (index: number) => {
-    if (flippedIndices.length === 2 || cards[index].flipped || cards[index].matched || hintTimer !== null) return
+    if (flippedIndices.length === 2 || cards[index].flipped || cards[index].matched || isPaused) return
+
+    const newFlipped = [...flippedIndices, index]
+    setFlippedIndices(newFlipped)
 
     const newCards = [...cards]
     newCards[index].flipped = true
     setCards(newCards)
 
-    const newFlipped = [...flippedIndices, index]
-    setFlippedIndices(newFlipped)
-
     if (newFlipped.length === 2) {
-      const [first, second] = newFlipped
-      if (cards[first].value === cards[second].value) {
-        newCards[first].matched = true
-        newCards[second].matched = true
-        setCards(newCards)
-        setStreak(streak + 1)
+      const [firstIndex, secondIndex] = newFlipped
+      if (cards[firstIndex].value === cards[secondIndex].value) {
+        setCards((prev) =>
+          prev.map((c, i) => (i === firstIndex || i === secondIndex ? { ...c, matched: true } : c)),
+        )
         setFlippedIndices([])
+        setStreak((s) => s + 1)
+        setTimeLeft((prev) => prev + 2) // Bonus time
+        if (targetTime) setTargetTime(prev => (prev || Date.now()) + 2000) // Add to timestamps
 
-        if (newCards.every((card) => card.matched)) {
-          setTimeout(onLevelComplete, 500)
+        // XP Gain on Match?
+        onXpChange(xp + 5) // Reward for match
+
+        const allMatched = cards.every((c, i) =>
+          (i === firstIndex || i === secondIndex) || c.matched
+        )
+        if (allMatched) {
+          onLevelComplete(level + 1)
         }
       } else {
-        setStreak(0)
         setTimeout(() => {
-          newCards[first].flipped = false
-          newCards[second].flipped = false
-          setCards(newCards)
+          setCards((prev) =>
+            prev.map((c, i) => (i === firstIndex || i === secondIndex ? { ...c, flipped: false } : c)),
+          )
           setFlippedIndices([])
-        }, 800)
+          setStreak(0)
+        }, 1000)
       }
     }
   }
 
   const handleHint = () => {
-    const unmatched = cards.filter((c) => !c.matched)
+    if (xp < 10) {
+      alert("Not enough XP! Need 10 XP.") // Simple feedback
+      return
+    }
+
+    onXpChange(xp - 10)
+
+    const unmatched = cards.filter((c) => !c.matched && !c.flipped)
     if (unmatched.length < 2) return
 
-    const firstCard = unmatched[0]
-    const matchingCard = unmatched.find((c) => c.id !== firstCard.id && c.value === firstCard.value)
+    // Find a pair
+    const cardValues = unmatched.map(c => c.value)
+    // Find duplicate value
+    const pairValue = cardValues.find((item, index) => cardValues.indexOf(item) !== index)
 
-    if (matchingCard) {
-      const newCards = cards.map((card) =>
-        card.id === firstCard.id || card.id === matchingCard.id ? { ...card, flipped: true } : card,
-      )
-      setCards(newCards)
+    if (pairValue) {
+      // Reveal them
+      setCards(prev => prev.map(c => c.value === pairValue ? { ...c, flipped: true } : c))
       setHintTimer(3)
     }
   }
@@ -1451,6 +1514,10 @@ function MultiplayerGameplay({
           <p className="text-[#1e293b] text-sm font-bold">STREAK</p>
           <p className="text-[#3b82f6] text-4xl font-black">{streak}</p>
         </div>
+        <div className="flex items-center gap-3 bg-yellow-100 px-3 py-1 rounded-full">
+          <Zap className="w-5 h-5 text-yellow-600" />
+          <p className="text-yellow-700 font-bold">{xp} XP</p>
+        </div>
         <div className="text-right flex items-center gap-2">
           <div>
             <p className="text-[#1e293b] text-sm font-bold">LEVEL</p>
@@ -1480,10 +1547,10 @@ function MultiplayerGameplay({
         <div className="flex rounded-2xl overflow-hidden shadow-lg">
           <button
             onClick={handleHint}
-            disabled={hintTimer !== null}
+            disabled={hintTimer !== null || xp < 10}
             className="flex-1 bg-gradient-to-r from-[#f59e0b] to-[#d97706] hover:from-[#d97706] hover:to-[#b45309] text-white font-black text-xl py-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            HINT
+            HINT (10 XP)
           </button>
           <div className="flex-1 bg-gradient-to-l from-[#ef4444] to-[#dc2626] text-white font-black text-xl py-4 flex items-center justify-center">
             {hintTimer !== null ? `${hintTimer}s` : formatTime(timeLeft)}
