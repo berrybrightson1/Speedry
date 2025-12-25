@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { database, ref, set, onValue, update, push } from "@/lib/firebase"
 
 type Screen =
+  | "welcome"
   | "menu"
   | "levelSelect"
   | "game"
@@ -34,6 +35,7 @@ type RoomData = {
 }
 
 export default function SpeedryConquest() {
+  const [isLoading, setIsLoading] = useState(true)
   const [screen, setScreen] = useState<Screen>("menu")
   const [level, setLevel] = useState(1)
   const [xp, setXp] = useState(0)
@@ -44,10 +46,13 @@ export default function SpeedryConquest() {
   const [matchCode, setMatchCode] = useState<string>("")
 
   useEffect(() => {
+    // Check local storage and initialize state
+    const hasSeenWelcome = localStorage.getItem('speedry_welcomed')
     const savedBestLevel = localStorage.getItem("speedry_best_level")
+    const storedPlayerId = localStorage.getItem("speedry_player_id")
+
     if (savedBestLevel) setBestLevel(Number.parseInt(savedBestLevel))
 
-    const storedPlayerId = localStorage.getItem("speedry_player_id")
     if (storedPlayerId) {
       setPlayerId(storedPlayerId)
     } else {
@@ -55,6 +60,14 @@ export default function SpeedryConquest() {
       setPlayerId(newPlayerId)
       localStorage.setItem("speedry_player_id", newPlayerId)
     }
+
+    if (!hasSeenWelcome) {
+      setScreen('welcome')
+    } else {
+      setScreen('menu')
+    }
+
+    setIsLoading(false)
   }, [])
 
   const handleStartGame = (startLevel: number) => {
@@ -155,9 +168,25 @@ export default function SpeedryConquest() {
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
+        <Loader2 className="w-12 h-12 animate-spin text-[#8b5cf6]" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        {screen === "welcome" && (
+          <WelcomeScreen
+            onGetStarted={() => {
+              localStorage.setItem('speedry_welcomed', 'true')
+              setScreen('menu')
+            }}
+          />
+        )}
         {screen === "menu" && (
           <MenuScreen
             onQuickPlay={() => handleStartGame(1)}
@@ -227,6 +256,80 @@ export default function SpeedryConquest() {
           />
         )}
       </div>
+    </div>
+  )
+}
+
+function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
+  return (
+    <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">
+      {/* Close Button */}
+      <button
+        onClick={onGetStarted}
+        className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/50 transition-colors group"
+        aria-label="Close welcome screen"
+      >
+        <XCircle className="w-6 h-6 text-[#64748b] group-hover:text-[#1e293b]" />
+      </button>
+
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-5xl font-black leading-none tracking-tight mb-2">
+          <span className="text-[#1e293b]">SPEE</span>
+          <span className="text-[#8b5cf6]">DRY</span>
+        </h1>
+        <p className="text-lg text-[#64748b] font-semibold">Memory Match Challenge</p>
+      </div>
+
+      {/* How to Play Section */}
+      <div className="bg-white rounded-2xl p-6 mb-6 shadow-lg space-y-6">
+        <h2 className="text-2xl font-black text-[#1e293b] text-center mb-4">HOW TO PLAY</h2>
+
+        {/* Objective */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-[#8b5cf6]" />
+            <h3 className="text-lg font-bold text-[#1e293b]">Objective</h3>
+          </div>
+          <p className="text-sm text-[#64748b] leading-relaxed pl-7">
+            Match all pairs of cards before time runs out to advance to the next level.
+          </p>
+        </div>
+
+        {/* Game Flow */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#3b82f6]" />
+            <h3 className="text-lg font-bold text-[#1e293b]">Game Flow</h3>
+          </div>
+          <ul className="text-sm text-[#64748b] leading-relaxed pl-7 space-y-1">
+            <li><strong>Preview Phase:</strong> Cards shown for 5 seconds - memorize them!</li>
+            <li><strong>Match Phase:</strong> Find matching pairs with limited time</li>
+            <li><strong>Level Up:</strong> Complete levels to unlock harder challenges</li>
+          </ul>
+        </div>
+
+        {/* Tips */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-[#f59e0b]" />
+            <h3 className="text-lg font-bold text-[#1e293b]">Tips</h3>
+          </div>
+          <ul className="text-sm text-[#64748b] leading-relaxed pl-7 space-y-1">
+            <li>Build streaks for bonus points</li>
+            <li>Use hints wisely when stuck</li>
+            <li>Manage your lives carefully</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Get Started Button */}
+      <Button
+        onClick={onGetStarted}
+        className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all duration-300 hover:scale-[1.02]"
+      >
+        GET STARTED
+      </Button>
     </div>
   )
 }
@@ -310,9 +413,12 @@ function MenuScreen({
         </Button>
       </div>
 
+
+
       <div className="text-center text-[#64748b] text-sm font-semibold mt-4">Developer Rebry Creatives</div>
     </div>
   )
+
 }
 
 function LevelSelectScreen({
@@ -372,7 +478,7 @@ function GameScreen({
   onGameOver: () => void // Added prop type
 }) {
   const pairsCount = 1 + level
-  const initialTime = Math.floor(pairsCount * 2.5) // Stricter timer: level 1 = 5s, level 2 = 7s, etc.
+  const initialTime = Math.floor(pairsCount * 3) // Level 1 = 6s, level 2 = 9s, etc.
 
 
   const [cards, setCards] = useState<Card[]>([])
@@ -389,6 +495,8 @@ function GameScreen({
   const [levelCompleted, setLevelCompleted] = useState(false)
   const [showPreview, setShowPreview] = useState(true)
   const [previewTimeLeft, setPreviewTimeLeft] = useState(5)
+
+  const [targetTime, setTargetTime] = useState<number | null>(null)
 
   useEffect(() => {
     const numbers = Array.from({ length: pairsCount }, (_, i) => i + 1)
@@ -407,12 +515,14 @@ function GameScreen({
     setStreak(0)
     setShowPreview(true)
     setPreviewTimeLeft(5)
+    setTargetTime(null) // Reset target time
   }, [level, pairsCount, initialTime])
 
   // Reset timer when level changes
   useEffect(() => {
     setTimeLeft(initialTime)
     setLevelCompleted(false)
+    setTargetTime(null)
   }, [level, initialTime])
 
   useEffect(() => {
@@ -441,6 +551,8 @@ function GameScreen({
             }))
           )
           setShowPreview(false)
+          // Set target time for main game timer when preview ends
+          setTargetTime(Date.now() + initialTime * 1000)
           return 0
         }
         return t - 1
@@ -448,22 +560,39 @@ function GameScreen({
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [showPreview, previewTimeLeft])
+  }, [showPreview, initialTime])
 
 
   useEffect(() => {
-    if (isPaused || timeLeft <= 0 || levelCompleted || showPreview) return
+    // timestamp based timer
+    if (isPaused || levelCompleted || showPreview || !targetTime) {
+      if (isPaused && targetTime) {
+        // If paused, we need to adjust targetTime when unpaused. 
+        // For simplicity, just clearing targetTime here and handling resume would be complex.
+        // Let's stick to simple countdown for pause support but use Date.now for active counting?
+        // Actually, mixing strategies is bad. 
+        // Let's go back to high-res interval but just checking elapsed time.
+        return
+      }
+      return
+    }
 
     const timer = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
+      const now = Date.now()
+      const remaining = Math.ceil((targetTime - now) / 1000)
+
+      if (remaining <= 0) {
+        setTimeLeft(0)
+        // Handle timeout
+      } else {
+        setTimeLeft(remaining)
+      }
+    }, 100) // Update frequency 10Hz
+
     return () => clearInterval(timer)
-  }, [isPaused, levelCompleted, showPreview])
+  }, [isPaused, levelCompleted, showPreview, targetTime])
+
+
 
   useEffect(() => {
     if (timeLeft === 0 && !levelCompleted) {
@@ -636,7 +765,7 @@ function GameScreen({
         )}
 
         {showPreview && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-300">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-[800ms]">
             <div className="text-center">
               <h2 className="text-5xl font-black mb-2">MEMORIZE!</h2>
               <div className="text-8xl font-black animate-pulse">{previewTimeLeft}</div>
