@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import useEmblaCarousel from "embla-carousel-react"
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { database, ref, set, onValue, update, push } from "@/lib/firebase"
 
 type Screen =
@@ -504,9 +505,53 @@ function LevelSelectScreen({
       >
         BACK TO MENU
       </Button>
-    </div>
+    </div >
   )
 }
+
+const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSize = 4 }: {
+  cards: Card[],
+  onCardClick: (index: number) => void,
+  isPaused: boolean,
+  hintActive: boolean,
+  gridSize?: number
+}) => {
+  const [parent] = useAutoAnimate()
+
+  // Create a safe display list that maintains indexes but hides matched
+  // Actually, for Masonry we want to REMOVE them from DOM. 
+  // But we need to keep the original index for the click handler.
+  // So we map the original cards, but return null for matched.
+
+  return (
+    <div
+      ref={parent}
+      className="grid gap-3 mb-6"
+      style={{
+        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+      }}
+    >
+      {cards.map((card, i) => {
+        if (card.matched) return null
+
+        return (
+          <button
+            key={card.id}
+            onClick={() => onCardClick(i)}
+            disabled={card.flipped || isPaused || hintActive}
+            className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center animate-in zoom-in ${card.flipped
+              ? "bg-[#f5f5f5] text-[#333] scale-105"
+              : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
+              }`}
+          >
+            {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
+          </button>
+        )
+      })}
+    </div>
+  )
+})
+CardGrid.displayName = "CardGrid"
 
 function GameScreen({
   onBack,
@@ -935,28 +980,13 @@ function GameScreen({
           </div>
         </div>
 
-        <div
-          className="grid gap-3 mb-6"
-          style={{
-            gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-          }}
-        >
-          {cards.map((card, i) => (
-            <button
-              key={card.id}
-              onClick={() => handleCardClick(i)}
-              disabled={card.matched || card.flipped || isPaused || hintTimeLeft !== null}
-              className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center ${card.matched
-                ? "bg-[#f5f5f5] text-[#333] scale-105" // Matched (White)
-                : card.flipped
-                  ? "bg-[#f5f5f5] text-[#333] scale-105" // Flipped (White)
-                  : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent" // Back (Grey)
-                }`}
-            >
-              {(card.flipped || card.matched) && <i className={`fa-solid ${card.value}`}></i>}
-            </button>
-          ))}
-        </div>
+        <CardGrid
+          cards={cards}
+          onCardClick={handleCardClick}
+          isPaused={isPaused}
+          hintActive={hintTimeLeft !== null}
+          gridSize={gridCols}
+        />
 
         <div className="flex gap-0 mb-6 rounded-2xl overflow-hidden shadow-lg">
           <button
@@ -1631,7 +1661,7 @@ function MultiplayerGameplay({
     setIsPaused(false)
   }
 
-  const handleCardClick = (index: number) => {
+  const handleCardClick = useCallback((index: number) => {
     if (flippedIndices.length === 2 || cards[index].flipped || cards[index].matched || isPaused) return
 
     const newFlipped = [...flippedIndices, index]
@@ -1659,7 +1689,7 @@ function MultiplayerGameplay({
           (i === firstIndex || i === secondIndex) || c.matched
         )
         if (allMatched) {
-          onLevelComplete(level + 1)
+          setTimeout(() => onLevelComplete(level + 1), 1000)
         }
       } else {
         setTimeout(() => {
@@ -1667,11 +1697,10 @@ function MultiplayerGameplay({
             prev.map((c, i) => (i === firstIndex || i === secondIndex ? { ...c, flipped: false } : c)),
           )
           setFlippedIndices([])
-          setStreak(0)
-        }, 500)
+        }, 250) // Fast mismatch flip
       }
     }
-  }
+  }, [cards, flippedIndices, isPaused, targetTime, xp, onXpChange, onLevelComplete, level])
 
   const handleHint = () => {
     if (xp < 10) {
@@ -1700,7 +1729,7 @@ function MultiplayerGameplay({
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
+  } // End match check helper
 
   return (
     <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-screen">
@@ -1745,25 +1774,13 @@ function MultiplayerGameplay({
       </div>
 
       <div className="bg-gradient-to-br from-[#dbeafe] to-[#bfdbfe] rounded-3xl p-6 mb-6 shadow-inner">
-        <div className={`grid gap-3 mb-6`} style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>
-          {cards.map((card, index) => {
-            if (card.matched) return null // Masonry Effect: Remove from DOM
-
-            return (
-              <button
-                key={card.id}
-                onClick={() => handleCardClick(index)}
-                disabled={card.flipped || isPaused || hintTimer !== null}
-                className={`aspect-square rounded-xl text-[32px] transition-all duration-75 shadow-md flex items-center justify-center animate-in zoom-in ${card.flipped
-                  ? "bg-[#f5f5f5] text-[#333] scale-105"
-                  : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
-                  }`}
-              >
-                {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
-              </button>
-            )
-          })}
-        </div>
+        <CardGrid
+          cards={cards}
+          onCardClick={handleCardClick}
+          isPaused={isPaused}
+          hintActive={hintTimer !== null}
+          gridSize={gridSize}
+        />
 
         <div className="flex rounded-2xl overflow-hidden shadow-lg">
           <button
