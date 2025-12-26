@@ -32,8 +32,16 @@ type RoomData = {
   gameState: GameState
   currentTurn: string
   players: Record<string, PlayerData>
-  matchCode?: string
-  hostId: string // Added hostId
+  matchCode?: string // 6-char code
+  hostId?: string // ID of the creator
+  tournament?: {
+    round: number // 1..5
+    scores: { [playerId: string]: number }
+    activePlayerId: string
+    winnerId?: string
+    status: "waiting" | "playing" | "game_5_intro" | "finished"
+    roundStartTime?: number
+  }
 }
 
 export default function SpeedryConquest() {
@@ -727,7 +735,9 @@ function GameScreen({
 
           setCards(updatedCards)
           setFlippedIndices([])
-        }, 800)
+          setCards(updatedCards)
+          setFlippedIndices([])
+        }, 500)
       }
     },
     [cards, flippedIndices, isPaused, streak, hintTimeLeft, xp, onXpChange, showTimedOut, showPreview],
@@ -811,9 +821,9 @@ function GameScreen({
         {showPreview && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-[800ms]">
             <div className="text-center">
-              <h2 className="text-5xl font-black mb-2">MEMORIZE!</h2>
+              <h2 className="text-5xl font-black mb-2">GET READY</h2>
               <div className="text-8xl font-black animate-pulse">{previewTimeLeft}</div>
-              <p className="text-lg font-bold mt-2 opacity-90">Study the cards...</p>
+              <p className="text-lg font-bold mt-2 opacity-90">Memorize the positions...</p>
             </div>
           </div>
         )}
@@ -934,7 +944,7 @@ function GameScreen({
               key={card.id}
               onClick={() => handleCardClick(i)}
               disabled={card.matched || card.flipped || isPaused || hintTimeLeft !== null}
-              className={`aspect-square rounded-2xl shadow-md transition-all duration-300 text-4xl font-black ${card.matched
+              className={`aspect-square rounded-2xl shadow-md transition-all duration-75 text-4xl font-black ${card.matched
                 ? "bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white scale-95 opacity-60"
                 : card.flipped
                   ? "bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white scale-105"
@@ -1210,7 +1220,24 @@ function LobbyScreen({
   }
 
   const handleStartMatch = async () => {
-    await update(ref(database, `rooms/${roomId}`), { gameState: "playing" })
+    // Reset Levels to 1 for Tournament
+    const updates: any = {
+      [`rooms/${roomId}/gameState`]: "playing",
+      [`rooms/${roomId}/tournament`]: {
+        round: 1,
+        scores: { [playerId]: 0, [Object.keys(roomData?.players || {}).find(p => p !== playerId)!]: 0 },
+        activePlayerId: playerId, // Host starts?
+        status: "playing",
+        roundStartTime: Date.now()
+      }
+    }
+    // Also reset individual players to Level 1
+    Object.keys(roomData?.players || {}).forEach(pid => {
+      updates[`rooms/${roomId}/players/${pid}/currentLevel`] = 1
+      updates[`rooms/${roomId}/players/${pid}/lives`] = 3 // Reset lives too?
+    })
+
+    await update(ref(database), updates)
   }
 
   const playersList = roomData ? Object.entries(roomData.players) : []
@@ -1384,19 +1411,33 @@ function MultiplayerGameScreen({
     )
   }
 
-  if (!isMyTurn) {
-    return <OpponentIsPlaying opponentData={opponentData} myData={roomData.players[playerId]} />
+  // Tournament Turn Logic
+  const isActivePlayer = roomData.tournament?.activePlayerId === playerId
+
+  if (!isActivePlayer) {
+    return <OpponentIsPlaying opponentData={opponentData} myData={roomData.players[playerId]} tournament={roomData.tournament} />
   }
 
   return (
     <MultiplayerGameplay
       level={roomData.players[playerId].currentLevel}
+      tournament={roomData.tournament}
       lives={roomData.players[playerId].lives}
       onLevelComplete={async (newLevel) => {
-        await update(ref(database, `rooms/${roomId}/players/${playerId}`), {
-          currentLevel: newLevel,
-          score: roomData.players[playerId].score + 100, // Score logic
-        })
+        // Tournament: Win Round
+        const nextRound = (roomData.tournament?.round || 0) + 1
+        const updates: any = {
+          [`rooms/${roomId}/players/${playerId}/currentLevel`]: newLevel,
+          // Increment Score
+          [`rooms/${roomId}/tournament/scores/${playerId}`]: (roomData.tournament?.scores?.[playerId] || 0) + 1,
+          // Switch Turn
+          [`rooms/${roomId}/tournament/activePlayerId`]: opponentId,
+          [`rooms/${roomId}/tournament/round`]: nextRound,
+          [`rooms/${roomId}/tournament/roundStartTime`]: Date.now(),
+          // Special: Check Game 5
+          [`rooms/${roomId}/tournament/status`]: nextRound === 5 ? "game_5_intro" : "playing"
+        }
+        await update(ref(database), updates)
       }}
       onLevelFail={async () => {
         const newLives = roomData.players[playerId].lives - 1
@@ -1404,12 +1445,18 @@ function MultiplayerGameScreen({
           [`rooms/${roomId}/players/${playerId}/lives`]: newLives
         }
 
-        if (newLives > 0 && opponentId) {
-          updates[`rooms/${roomId}/currentTurn`] = opponentId
-        } else if (newLives <= 0) {
-          // Game Over logic (Loss)
-          updates[`rooms/${roomId}/gameState`] = "finished"
-          // Ideally set winner?
+        if (newLives <= 0) {
+          // Tournament: Lost Round (Turn Over)
+          const nextRound = (roomData.tournament?.round || 0) + 1
+          updates[`rooms/${roomId}/tournament/activePlayerId`] = opponentId
+          updates[`rooms/${roomId}/tournament/round`] = nextRound
+          updates[`rooms/${roomId}/tournament/roundStartTime`] = Date.now()
+          updates[`rooms/${roomId}/tournament/status`] = nextRound === 5 ? "game_5_intro" : "playing"
+
+          // Allow retry next time? Or reset lives?
+          // For now, keep as is.
+        } else {
+          // Just lost a life, keep playing (Timer resets via key/effect in Gameplay)
         }
         await update(ref(database), updates)
       }}
@@ -1420,14 +1467,21 @@ function MultiplayerGameScreen({
   )
 }
 
-function OpponentIsPlaying({ opponentData, myData }: { opponentData: PlayerData | null, myData: PlayerData }) {
+function OpponentIsPlaying({ opponentData, myData, tournament }: { opponentData: PlayerData | null, myData: PlayerData, tournament?: any }) {
   return (
     <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
       <div className="text-center space-y-6">
         <div className="w-24 h-24 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-full flex items-center justify-center mx-auto animate-pulse">
+          {tournament?.round && (
+            <div className="absolute top-0 right-0 bg-yellow-400 text-white font-black px-2 rounded-full border-2 border-white shadow-sm">
+              R{tournament.round}
+            </div>
+          )}
           <Users className="w-12 h-12 text-white" />
         </div>
-        <h2 className="text-3xl font-black text-[#1e293b]">OPPONENT IS PLAYING...</h2>
+        <h2 className="text-3xl font-black text-[#1e293b]">
+          {tournament?.status === "game_5_intro" ? "GAME 5 DECIDER!" : "OPPONENT IS PLAYING..."}
+        </h2>
 
         {opponentData && (
           <div className="bg-white rounded-2xl p-6 shadow-lg">
@@ -1479,6 +1533,7 @@ function MultiplayerGameplay({
   onLevelFail,
   xp,
   onXpChange,
+  tournament,
 }: {
   level: number
   lives: number
@@ -1487,12 +1542,27 @@ function MultiplayerGameplay({
   onLevelFail: () => void
   xp: number
   onXpChange: (newXp: number) => void
+  tournament?: any
 }) {
   const gridSize = Math.min(6, 2 + Math.floor(level / 2)) * 2
   const cardCount = gridSize * 3
   const pairCount = cardCount / 2
-  const pairsCount = 1 + level
-  const [timeLeft, setTimeLeft] = useState(6 + pairsCount * 3)
+  const pairsCount = 1 + level // Logic logic might need tweaks if levels reset
+
+  // Timer: Server Authoritative
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  useEffect(() => {
+    if (tournament?.roundStartTime) {
+      const duration = 6 + (1 + level) * 3
+      const endAt = tournament.roundStartTime + (duration * 1000)
+      const remaining = Math.ceil((endAt - Date.now()) / 1000)
+      setTimeLeft(Math.max(0, remaining))
+    } else {
+      // Fallback for local testing or old mode
+      setTimeLeft(6 + (1 + level) * 3)
+    }
+  }, [tournament, level])
   const [targetTime, setTargetTime] = useState<number | null>(null)
 
   const [cards, setCards] = useState<Card[]>([])
@@ -1595,7 +1665,7 @@ function MultiplayerGameplay({
           )
           setFlippedIndices([])
           setStreak(0)
-        }, 1000)
+        }, 500)
       }
     }
   }
@@ -1673,19 +1743,23 @@ function MultiplayerGameplay({
 
       <div className="bg-gradient-to-br from-[#dbeafe] to-[#bfdbfe] rounded-3xl p-6 mb-6 shadow-inner">
         <div className={`grid gap-3 mb-6`} style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}>
-          {cards.map((card, index) => (
-            <button
-              key={card.id}
-              onClick={() => handleCardClick(index)}
-              disabled={card.matched}
-              className={`aspect-square rounded-2xl font-black text-4xl transition-all shadow-md flex items-center justify-center ${card.flipped || card.matched
-                ? "bg-[#3b82f6] text-white scale-95"
-                : "bg-[#93c5fd] hover:bg-[#60a5fa] hover:scale-105"
-                }`}
-            >
-              {(card.flipped || card.matched) && card.value}
-            </button>
-          ))}
+          {cards.map((card, index) => {
+            if (card.matched) return null // Masonry Effect: Remove from DOM
+
+            return (
+              <button
+                key={card.id}
+                onClick={() => handleCardClick(index)}
+                disabled={card.flipped || isPaused || hintTimer !== null}
+                className={`aspect-square rounded-2xl font-black text-4xl transition-all duration-75 shadow-md flex items-center justify-center animate-in zoom-in ${card.flipped
+                  ? "bg-[#3b82f6] text-white scale-95"
+                  : "bg-[#93c5fd] hover:bg-[#60a5fa] hover:scale-105"
+                  }`}
+              >
+                {(card.flipped) && card.value}
+              </button>
+            )
+          })}
         </div>
 
         <div className="flex rounded-2xl overflow-hidden shadow-lg">
