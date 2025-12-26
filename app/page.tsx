@@ -18,7 +18,7 @@ type Screen =
   | "multiplayerGame"
   | "createMatch"
   | "joinMatch"
-type Card = { id: number; value: number; matched: boolean; flipped: boolean }
+type Card = { id: number; value: string; matched: boolean; flipped: boolean }
 type PowerUp = "peek" | "autoMatch" | "streakShield"
 type GameState = "lobby" | "playing" | "finished"
 type PlayerData = {
@@ -545,8 +545,9 @@ function GameScreen({
   const [targetTime, setTargetTime] = useState<number | null>(null)
 
   useEffect(() => {
-    const numbers = Array.from({ length: pairsCount }, (_, i) => i + 1)
-    const cardPairs = [...numbers, ...numbers]
+    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+    const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+    const cardPairs = [...selectedIcons, ...selectedIcons]
       .sort(() => Math.random() - 0.5)
       .map((value, i) => ({
         id: i,
@@ -797,8 +798,9 @@ function GameScreen({
     setPreviewTimeLeft(4 + level)
 
     // Regenerate cards and start with them flipped for preview
-    const numbers = Array.from({ length: pairsCount }, (_, i) => i + 1)
-    const cardPairs = [...numbers, ...numbers]
+    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+    const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+    const cardPairs = [...selectedIcons, ...selectedIcons]
       .sort(() => Math.random() - 0.5)
       .map((value, i) => ({
         id: i,
@@ -944,14 +946,14 @@ function GameScreen({
               key={card.id}
               onClick={() => handleCardClick(i)}
               disabled={card.matched || card.flipped || isPaused || hintTimeLeft !== null}
-              className={`aspect-square rounded-2xl shadow-md transition-all duration-75 text-4xl font-black ${card.matched
-                ? "bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white scale-95 opacity-60"
+              className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center ${card.matched
+                ? "bg-[#f5f5f5] text-[#333] scale-105" // Matched (White)
                 : card.flipped
-                  ? "bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white scale-105"
-                  : "bg-gradient-to-br from-[#cbd5e1] to-[#94a3b8] hover:from-[#94a3b8] hover:to-[#64748b] text-transparent hover:scale-105"
+                  ? "bg-[#f5f5f5] text-[#333] scale-105" // Flipped (White)
+                  : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent" // Back (Grey)
                 }`}
             >
-              {(card.flipped || card.matched) && card.value}
+              {(card.flipped || card.matched) && <i className={`fa-solid ${card.value}`}></i>}
             </button>
           ))}
         </div>
@@ -1614,8 +1616,9 @@ function MultiplayerGameplay({
   }, [hintTimer])
 
   const initializeCards = () => {
-    const numbers = Array.from({ length: pairCount }, (_, i) => i + 1)
-    const deck = [...numbers, ...numbers]
+    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+    const selectedIcons = Array.from({ length: pairCount }, (_, i) => icons[i % icons.length])
+    const deck = [...selectedIcons, ...selectedIcons]
     const shuffled = deck.sort(() => Math.random() - 0.5)
     setCards(shuffled.map((value, id) => ({ id, value, matched: false, flipped: false })))
     setFlippedIndices([])
@@ -1751,12 +1754,12 @@ function MultiplayerGameplay({
                 key={card.id}
                 onClick={() => handleCardClick(index)}
                 disabled={card.flipped || isPaused || hintTimer !== null}
-                className={`aspect-square rounded-2xl font-black text-4xl transition-all duration-75 shadow-md flex items-center justify-center animate-in zoom-in ${card.flipped
-                  ? "bg-[#3b82f6] text-white scale-95"
-                  : "bg-[#93c5fd] hover:bg-[#60a5fa] hover:scale-105"
+                className={`aspect-square rounded-xl text-[32px] transition-all duration-75 shadow-md flex items-center justify-center animate-in zoom-in ${card.flipped
+                  ? "bg-[#f5f5f5] text-[#333] scale-105"
+                  : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
                   }`}
               >
-                {(card.flipped) && card.value}
+                {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
               </button>
             )
           })}
