@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock } from "lucide-react"
+import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import useEmblaCarousel from "embla-carousel-react"
 import { database, ref, set, onValue, update, push } from "@/lib/firebase"
 
 type Screen =
@@ -218,11 +219,18 @@ export default function SpeedryConquest() {
         )}
         {screen === "menu" && (
           <MenuScreen
-            onQuickPlay={() => handleStartGame(1)}
+            onQuickPlay={() => {
+              // Quick Play: Random level 1-5
+              const randomLevel = Math.floor(Math.random() * 5) + 1
+              handleStartGame(randomLevel)
+            }}
+            onContinue={() => handleStartGame(bestLevel)}
             onLevelSelect={() => setScreen("levelSelect")}
             onMultiplayer={handleMultiplayer}
             onCreateMatch={handleCreateMatch}
             onJoinMatch={() => setScreen("joinMatch")}
+            bestLevel={bestLevel}
+            xp={xp}
           />
         )}
 
@@ -361,16 +369,22 @@ function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
 
 function MenuScreen({
   onQuickPlay,
+  onContinue,
   onLevelSelect,
   onMultiplayer,
   onCreateMatch,
   onJoinMatch,
+  bestLevel,
+  xp,
 }: {
   onQuickPlay: () => void
+  onContinue: () => void
   onLevelSelect: () => void
   onMultiplayer: () => void
   onCreateMatch: () => void
   onJoinMatch: () => void
+  bestLevel: number
+  xp: number
 }) {
   return (
     <div className="flex flex-col items-center justify-center space-y-8 py-12">
@@ -383,13 +397,12 @@ function MenuScreen({
       </div>
 
       <div className="w-full max-w-sm">
-        <Button
-          onClick={onQuickPlay}
-          className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-2xl px-12 py-8 rounded-3xl shadow-xl h-auto hover:scale-105 transition-all flex items-center justify-center"
-        >
-          <Zap className="mr-3 h-8 w-8 fill-white" />
-          QUICK PLAY
-        </Button>
+        <ModeCarousel
+          onQuickPlay={onQuickPlay}
+          onContinue={onContinue}
+          bestLevel={bestLevel}
+          xp={xp}
+        />
       </div>
 
       <div className="flex gap-4 w-full max-w-sm">
@@ -539,7 +552,8 @@ function GameScreen({
     setFlippedIndices([])
     setStreak(0)
     setShowPreview(true)
-    setPreviewTimeLeft(5)
+    // Scale preview time: Base 4s + 1s per level. e.g. Lvl 1=5s, Lvl 5=9s
+    setPreviewTimeLeft(4 + level)
     setTargetTime(null) // Reset target time
   }, [level, pairsCount, initialTime])
 
@@ -720,9 +734,14 @@ function GameScreen({
   )
 
   const handleHint = () => {
-    if (lives < 1 || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) return
+    if (xp < 10 || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) {
+      if (xp < 10 && !hintTimeLeft && !isPaused && !showTimedOut && !showPreview) {
+        // Optional: visual feedback
+      }
+      return
+    }
 
-    setLives((l) => l - 1)
+    onXpChange(xp - 10)
 
     const unmatched = cards.filter((c) => !c.matched && !c.flipped)
     if (unmatched.length >= 2) {
@@ -765,7 +784,7 @@ function GameScreen({
     setFlippedIndices([])
     setStreak(0)
     setShowPreview(true)
-    setPreviewTimeLeft(5)
+    setPreviewTimeLeft(4 + level)
 
     // Regenerate cards and start with them flipped for preview
     const numbers = Array.from({ length: pairsCount }, (_, i) => i + 1)
@@ -930,11 +949,11 @@ function GameScreen({
         <div className="flex gap-0 mb-6 rounded-2xl overflow-hidden shadow-lg">
           <button
             onClick={handleHint}
-            disabled={lives < 1 || hintTimeLeft !== null || isPaused}
+            disabled={xp < 10 || hintTimeLeft !== null || isPaused}
             className="flex-1 bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xl py-5 transition-all hover:from-[#7c3aed] hover:to-[#6d28d9] flex items-center justify-center gap-2 disabled:cursor-not-allowed"
           >
             <Zap className="h-5 w-5" />
-            HINT
+            HINT (10 XP)
           </button>
           <div className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-2xl flex items-center justify-center border-l-2 border-white/20">
             {hintTimeLeft !== null
@@ -1008,19 +1027,144 @@ function VictoryScreen({ level, onNextLevel, onMenu }: { level: number; onNextLe
       <Trophy className="w-24 h-24 mx-auto mb-4 text-[#8b4dff]" />
       <h2 className="text-[#1e2b4d] text-5xl font-black mb-4">VICTORY!</h2>
       <p className="text-[#6b7b99] text-xl font-bold mb-8">Level {level} Complete!</p>
-      <div className="space-y-4">
+      <div className="flex gap-4">
+        <Button
+          onClick={onMenu}
+          className="bg-[#a8c5e8] hover:bg-[#8faddb] text-white font-black text-2xl py-6 rounded-3xl shadow-md h-auto px-8"
+        >
+          MENU
+        </Button>
         <Button
           onClick={onNextLevel}
-          className="w-full bg-[#0066ff] hover:bg-[#0052cc] text-white font-black text-2xl py-8 rounded-3xl shadow-lg h-auto"
+          className="bg-[#0066ff] hover:bg-[#0052cc] text-white font-black text-2xl py-6 rounded-3xl shadow-lg h-auto px-12 animate-pulse"
         >
           NEXT LEVEL
         </Button>
-        <Button
-          onClick={onMenu}
-          className="w-full bg-[#a8c5e8] hover:bg-[#8faddb] text-white font-black text-2xl py-7 rounded-3xl shadow-md h-auto"
-        >
-          MAIN MENU
-        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ModeCarousel({
+  onQuickPlay,
+  onContinue,
+  bestLevel,
+  xp
+}: {
+  onQuickPlay: () => void,
+  onContinue: () => void,
+  bestLevel: number,
+  xp: number
+}) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: true, // Enable infinite loop
+    duration: 25, // Snappy transition
+  })
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Auto-slide effect
+  useEffect(() => {
+    if (!emblaApi) return
+
+    // Slide every 3 seconds
+    const interval = setInterval(() => {
+      if (emblaApi.canScrollNext()) {
+        emblaApi.scrollNext()
+      }
+    }, 3000) // Fast auto-slide frequency
+
+    return () => clearInterval(interval)
+  }, [emblaApi])
+
+  useEffect(() => {
+    if (!emblaApi) return
+
+    const onSelect = () => {
+      setSelectedIndex(emblaApi.selectedScrollSnap())
+    }
+
+    emblaApi.on('select', onSelect)
+
+    return () => {
+      emblaApi.off('select', onSelect)
+    }
+  }, [emblaApi])
+
+  return (
+    <div className="relative">
+      <div className="overflow-hidden rounded-3xl shadow-2xl" ref={emblaRef}>
+        <div className="flex touch-pan-y">
+          {/* SLIDE 1: QUICK PLAY */}
+          <div className="flex-[0_0_100%] min-w-0 relative">
+            <button
+              onClick={onQuickPlay}
+              className="w-full bg-gradient-to-br from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white p-8 h-48 flex flex-col items-center justify-center transition-all active:scale-95 group"
+            >
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Zap className="w-8 h-8 text-white fill-white" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-3xl font-black italic tracking-tighter">QUICK PLAY</h3>
+                <p className="text-blue-100 font-semibold text-sm mt-1">Random Levels 1-5</p>
+              </div>
+            </button>
+            {/* Absolute Badge */}
+            <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Fast Action</span>
+            </div>
+          </div>
+
+          {/* SLIDE 2: JOURNEY */}
+          <div className="flex-[0_0_100%] min-w-0 relative">
+            <button
+              onClick={onContinue}
+              className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 h-48 flex flex-col items-center justify-center transition-all active:scale-95 group"
+            >
+              <div className="w-full flex items-center justify-between mb-2 px-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Trophy className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-purple-100 uppercase">Current Best</p>
+                    <p className="text-2xl font-black leading-none">LEVEL {bestLevel}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+
+              {/* Progress Bar Visual (Fake XP Progress towards next rank?) */}
+              <div className="w-full mt-4 bg-black/20 h-3 rounded-full overflow-hidden relative">
+                <div
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                  style={{ width: `${Math.min(100, (xp % 100))}%` }}
+                />
+              </div>
+              <div className="w-full flex justify-between mt-2 text-xs font-bold text-purple-100 px-1">
+                <span>{xp} XP</span>
+                <span>NEXT RANK</span>
+              </div>
+            </button>
+            <div className="absolute top-4 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30">
+              <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Resume</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dots Indicator */}
+      <div className="flex justify-center gap-2 mt-4">
+        {[0, 1].map((index) => (
+          <button
+            key={index}
+            onClick={() => emblaApi?.scrollTo(index)}
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${selectedIndex === index
+              ? "bg-slate-800 w-8"
+              : "bg-slate-300 hover:bg-slate-400"
+              }`}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
       </div>
     </div>
   )
