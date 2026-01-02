@@ -1252,14 +1252,72 @@ function GameScreen({
         )}
 
         {showTimedOut && (
-          QUIT
-                  </button>
-    </div>
-              </div >
-            </div >
-          </div >
-        )
-}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
+              <div className="flex justify-center mb-4">
+                <div className="bg-red-100 p-3 rounded-full">
+                  <Clock className="h-10 w-10 text-red-600" />
+                </div>
+              </div>
+              <h3 className="text-[#1e293b] text-2xl font-black mb-2 text-center">Time's Up!</h3>
+              <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Keep practicing to improve your speed</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRetryLevel}
+                  className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-lg py-3 rounded-xl shadow-xl h-auto transition-all hover:scale-105"
+                >
+                  TRY AGAIN
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTimedOut(false)
+                    onBack()
+                  }}
+                  className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all hover:scale-105"
+                >
+                  QUIT
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LEVEL COMPLETE MODAL */}
+        {levelCompleted && !showXpPopup && (
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+            <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
+              <div className="flex justify-center mb-4">
+                <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
+                  <Trophy className="h-12 w-12 text-emerald-600" />
+                </div>
+              </div>
+              <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
+              <p className="text-slate-600 text-base font-bold mb-6 text-center">
+                Awesome work! Ready for the next challenge?
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setLevelCompleted(false)
+                    onLevelUp(level + 1)
+                  }}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
+                >
+                  NEXT LEVEL →
+                </button>
+                <button
+                  onClick={() => {
+                    setLevelCompleted(false)
+                    onBack()
+                  }}
+                  className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
+                >
+                  Back to Menu
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between">
