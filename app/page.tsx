@@ -1074,9 +1074,9 @@ function GameScreen({
   ) : null
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-2 overflow-y-auto duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300"}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center md:p-4 overflow-y-auto duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300"}`}>
       {fireAnimation}
-      <div className={`w-full max-w-sm rounded-2xl p-4 shadow-xl transition-all duration-1000 ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-500 shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
+      <div className={`w-full md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
         {showXpPopup && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
             +{xpPopupAmount} XP!
