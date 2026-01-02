@@ -5,7 +5,7 @@ import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2
 import { Button } from "@/components/ui/button"
 import useEmblaCarousel from "embla-carousel-react"
 import { useAutoAnimate } from '@formkit/auto-animate/react'
-import { database, ref, set, onValue, update, push } from "@/lib/firebase"
+import { database, ref, set, onValue, update, push, runTransaction, query, orderByChild, equalTo, get } from "@/lib/firebase"
 
 type Screen =
   | "welcome"
@@ -43,6 +43,15 @@ type RoomData = {
     status: "waiting" | "playing" | "game_5_intro" | "finished"
     roundStartTime?: number
   }
+  currentDeck?: string[] // Shared deck for fairness
+}
+
+// Helper to generate consistent decks
+const generateDeck = (level: number) => {
+  const pairsCount = level === 1 ? 2 : level === 2 ? 3 : 2 + level
+  const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem', 'fa-anchor', 'fa-bolt', 'fa-bomb', 'fa-cloud']
+  const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+  return [...selectedIcons, ...selectedIcons].sort(() => Math.random() - 0.5)
 }
 
 export default function SpeedryConquest() {
@@ -121,90 +130,121 @@ export default function SpeedryConquest() {
 
   const handleCreateMatch = async () => {
     if (!playerId) return
+    setIsLoading(true)
 
-    const roomRef = push(ref(database, "rooms"))
-    const newRoomId = roomRef.key
+    try {
+      const roomRef = push(ref(database, "rooms"))
+      const newRoomId = roomRef.key
 
-    if (newRoomId) {
-      // Generate a 6-character unique alphanumeric code
-      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed I, O, 1, 0 for clarity
-      let code = ""
-      for (let i = 0; i < 6; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length))
-      }
+      if (newRoomId) {
+        // Generate a 6-character unique alphanumeric code
+        const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        let code = ""
+        for (let i = 0; i < 6; i++) {
+          code += characters.charAt(Math.floor(Math.random() * characters.length))
+        }
 
-      await set(roomRef, {
-        gameState: "lobby",
-        currentTurn: playerId,
-        matchCode: code,
-        hostId: playerId, // Use this to track host
-        players: {
-          [playerId]: {
-            lives: 2,
-            isReady: false,
-            currentLevel: 1,
-            score: 0,
-            name: "Player 1",
+        await set(roomRef, {
+          gameState: "lobby",
+          currentTurn: playerId,
+          matchCode: code,
+          hostId: playerId,
+          players: {
+            [playerId]: {
+              lives: 2,
+              isReady: false,
+              currentLevel: 1,
+              score: 0,
+              name: "Player 1",
+            },
           },
-        },
-      })
+        })
 
-      setRoomId(newRoomId)
-      setMatchCode(code)
-      setRoomId(newRoomId)
-      setMatchCode(code)
-      setScreen("lobby")
+        setRoomId(newRoomId)
+        setMatchCode(code)
+        // Give explicit feedback or time for state to settle if needed, but usually instant
+        setScreen("lobby")
+      }
+    } catch (error) {
+      console.error("Error creating match:", error)
+      alert("Failed to create match. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleJoinMatch = async (code: string) => {
     if (!playerId || !code) return
+    setIsLoading(true)
 
-    // Search for room with matching code
-    const roomsRef = ref(database, "rooms")
-    onValue(
-      roomsRef,
-      async (snapshot) => {
-        const rooms = snapshot.val()
+    try {
+      // 1. Efficient Query: Only fetch rooms matching the code
+      const roomsRef = ref(database, "rooms")
+      const codeQuery = query(roomsRef, orderByChild("matchCode"), equalTo(code.toUpperCase()))
+      const snapshot = await get(codeQuery)
+      const rooms = snapshot.val()
 
-        if (rooms) {
-          const foundRoom = Object.entries(rooms).find(([_, room]: any) => room.matchCode === code.toUpperCase())
+      if (!rooms) {
+        alert("Match not found! Check the code and try again.")
+        setIsLoading(false)
+        return
+      }
 
-          if (foundRoom) {
-            const [foundRoomId, roomData]: any = foundRoom
+      // Should only be one room with this code, but find first just in case
+      const [foundRoomId, roomData]: any = Object.entries(rooms)[0]
 
-            // Check if room is available
-            if (roomData.gameState === "lobby" && Object.keys(roomData.players).length < 2) {
+      if (roomData.gameState !== "lobby") {
+        alert("Match already started!")
+        setIsLoading(false)
+        return
+      }
 
-              // PREVENT SELF-JOIN (Fix Desync)
-              if (roomData.players[playerId]) {
-                // User is already in the room. Just rejoin as themselves.
-                // This handles the "refresh/rejoin" case legitimately, 
-                // BUT if they are trying to play against themselves in same browser,
-                // this prevents the "Player 2" overwrite that causes desync.
-                // We simply load the lobby.
-                setRoomId(foundRoomId)
-                setScreen("lobby")
-                // Do NOT update player data (don't reset NAME/LIVES of existing player)
-                return
-              }
+      // 2. Transaction for Safe Joining (Prevents Race Conditions)
+      const roomPlayersRef = ref(database, `rooms/${foundRoomId}/players`)
+      await runTransaction(roomPlayersRef, (currentPlayers) => {
+        if (currentPlayers === null) return currentPlayers // Should exist
 
-              await update(ref(database, `rooms/${foundRoomId}/players/${playerId}`), {
-                lives: 2,
-                isReady: false,
-                currentLevel: 1,
-                score: 0,
-                name: "Player 2",
-              })
-
-              setRoomId(foundRoomId)
-              setScreen("lobby")
-            }
-          }
+        if (currentPlayers[playerId]) {
+          // Player already exists - allow rejoin
+          return currentPlayers
         }
-      },
-      { onlyOnce: true },
-    )
+
+        if (Object.keys(currentPlayers).length < 2) {
+          // Room has space - add player
+          // IMPORTANT: Check if "Player 1" exists to name correctly, though logic dictates host is P1
+          // We'll just force name to "Player 2" for the joiner
+          currentPlayers[playerId] = {
+            lives: 2,
+            isReady: false,
+            currentLevel: 1,
+            score: 0,
+            name: "Player 2",
+          }
+          return currentPlayers
+        } else {
+          // Room full - abort transaction
+          return undefined // Abort
+        }
+      })
+        .then((result) => {
+          if (result.committed) {
+            setRoomId(foundRoomId)
+            setScreen("lobby")
+          } else {
+            alert("Match is full!")
+          }
+        })
+        .catch((err) => {
+          console.error("Transaction failed", err)
+          alert("Failed to join match.")
+        })
+
+    } catch (error) {
+      console.error("Error joining match:", error)
+      alert("An error occurred while joining.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isLoading) {
@@ -298,6 +338,52 @@ export default function SpeedryConquest() {
           />
         )}
       </div>
+      <InstallPrompt />
+    </div>
+  )
+}
+
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showInstallBtn, setShowInstallBtn] = useState(false)
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstallBtn(true)
+    }
+
+    window.addEventListener("beforeinstallprompt", handler)
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler)
+    }
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return
+
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+
+    if (outcome === "accepted") {
+      setDeferredPrompt(null)
+      setShowInstallBtn(false)
+    }
+  }
+
+  if (!showInstallBtn) return null
+
+  return (
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm px-4">
+      <button
+        onClick={handleInstallClick}
+        className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-black text-lg py-4 rounded-2xl shadow-2xl animate-[bounce_1s_ease-in-out_infinite] flex items-center justify-center gap-2 border-4 border-white/20"
+      >
+        <Zap className="w-6 h-6 fill-white" />
+        MAGIC INSTALL
+      </button>
     </div>
   )
 }
@@ -398,14 +484,14 @@ function MenuScreen({
   return (
     <div className="flex flex-col items-center justify-center space-y-8 py-12">
       <div className="text-center">
-        <h1 className="text-[4rem] font-black leading-none tracking-tight">
+        <h1 className="text-3xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
-        <p className="text-[#1e293b] text-2xl font-black tracking-wide mt-1">CONQUEST</p>
+        <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
       </div>
 
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-xs">
         <ModeCarousel
           onQuickPlay={onQuickPlay}
           onContinue={onContinue}
@@ -414,49 +500,49 @@ function MenuScreen({
         />
       </div>
 
-      <div className="flex gap-4 w-full max-w-sm">
+      <div className="flex gap-2 w-full max-w-xs">
         <button
-          onClick={onMultiplayer}
-          className="flex-1 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] rounded-3xl p-6 flex flex-col items-center justify-center shadow-xl transition-all hover:scale-105"
+          disabled
+          className="flex-1 bg-slate-200 cursor-not-allowed rounded-xl p-3 flex flex-col items-center justify-center shadow-none opacity-70"
         >
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-3 shadow-md">
-            <Users className="w-8 h-8 text-[#8b5cf6]" />
+          <div className="w-10 h-10 bg-slate-300 rounded-full flex items-center justify-center mb-1">
+            <Users className="w-5 h-5 text-slate-400" />
           </div>
-          <p className="text-white font-black text-3xl">1V1</p>
-          <p className="text-white/90 text-xs font-semibold text-center mt-1">Play against a real-person</p>
+          <p className="text-slate-400 font-black text-base">1V1</p>
+          <p className="text-slate-400 text-[10px] font-semibold text-center mt-0.5">SOON</p>
         </button>
         <button
           onClick={onLevelSelect}
-          className="flex-1 bg-gradient-to-br from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] rounded-3xl p-6 flex flex-col items-center justify-center shadow-xl transition-all hover:scale-105"
+          className="flex-1 bg-gradient-to-br from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] rounded-xl p-3 flex flex-col items-center justify-center shadow-xl transition-all hover:scale-105"
         >
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-3 shadow-md">
-            <Target className="w-8 h-8 text-[#10b981]" />
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mb-1 shadow-md">
+            <Target className="w-5 h-5 text-[#10b981]" />
           </div>
-          <p className="text-white font-black text-3xl">SOLO</p>
-          <p className="text-white/90 text-xs font-semibold text-center mt-1">Play levels solo</p>
+          <p className="text-white font-black text-base">SOLO</p>
+          <p className="text-white/90 text-[10px] font-semibold text-center mt-0.5">PLAY SOLO</p>
         </button>
       </div>
 
-      <div className="w-full max-w-sm space-y-4">
+      <div className="w-full max-w-xs space-y-2">
         <Button
           onClick={onCreateMatch}
-          className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white font-black text-xl px-16 py-7 rounded-3xl shadow-xl h-auto hover:scale-105 transition-all"
+          className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white font-black text-base py-4 rounded-xl shadow-xl h-auto hover:scale-105 transition-all"
         >
           CREATE MATCH
         </Button>
 
         <Button
           onClick={onJoinMatch}
-          className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-xl px-16 py-7 rounded-3xl shadow-xl h-auto hover:scale-105 transition-all"
+          className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-base py-4 rounded-xl shadow-xl h-auto hover:scale-105 transition-all"
         >
           JOIN MATCH
         </Button>
 
         <Button
           onClick={onLevelSelect}
-          className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white font-black text-xl px-16 py-7 rounded-3xl shadow-xl h-auto hover:scale-105 transition-all"
+          className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white font-black text-base py-4 rounded-xl shadow-xl h-auto hover:scale-105 transition-all"
         >
-          SELECT A LEVEL
+          SELECT LEVEL
         </Button>
       </div>
 
@@ -568,8 +654,28 @@ function GameScreen({
   level: number // Added prop type
   onGameOver: () => void // Added prop type
 }) {
-  const pairsCount = 1 + level
-  const initialTime = Math.floor(pairsCount * 3) // Level 1 = 6s, level 2 = 9s, etc.
+  // Formula: Pairs = Level + 1. 
+  // Refined Time Logic: 
+  // Base: 6s.
+  // Low Levels (1-10): +4s per level.
+  // Mid Levels (11-19): +5s per level (Grids get bigger).
+  // High Levels (20+): +6s per level (Fire Mode - Intense but Fair).
+  const pairsCount = level + 1
+
+  let initialTime = 0
+  if (level <= 10) {
+    initialTime = 6 + (level - 1) * 4
+  } else if (level < 20) {
+    initialTime = 42 + (level - 10) * 5   // Level 10 ends at 6+9*4=42. So start from 42.
+  } else {
+    initialTime = 87 + (level - 20) * 6   // Level 19 ends at 42+9*5=87. So start from 87.
+  }
+
+  const isFireMode = level >= 20
+
+  // ... state ...
+
+
 
 
   const [cards, setCards] = useState<Card[]>([])
@@ -587,7 +693,103 @@ function GameScreen({
   const [showPreview, setShowPreview] = useState(true)
   const [previewTimeLeft, setPreviewTimeLeft] = useState(5)
 
+  const [showStore, setShowStore] = useState(false)
   const [targetTime, setTargetTime] = useState<number | null>(null)
+
+  const activateCheat = useCallback((cheatCode: string = "FIREMODE") => {
+    if (cheatCode === "FIREMODE") {
+      // 1. Always give XP (Spammable)
+      onXpChange(xp + 1000)
+      setXpPopupAmount(1000)
+      setShowXpPopup(true)
+      setTimeout(() => setShowXpPopup(false), 1500)
+
+      // 2. Level Warp (Once per 24h)
+      const lastWarp = localStorage.getItem("speedry_last_warp")
+      const attempts = Number(localStorage.getItem("speedry_warp_attempts") || 0)
+      const now = Date.now()
+      const COOLDOWN = 24 * 60 * 60 * 1000
+
+      if (!lastWarp || now - Number(lastWarp) > COOLDOWN) {
+        // SUCCESS: Warp to Level 20
+        onLevelUp(20)
+        localStorage.setItem("speedry_last_warp", now.toString())
+        localStorage.setItem("speedry_warp_attempts", "0") // Reset attempts
+        alert("🔥 FIRE MODE ACTIVATED: Level 20 & +1000 XP! 🔥")
+      } else {
+        // COOLDOWN ACTIVE
+        const newAttempts = attempts + 1
+        localStorage.setItem("speedry_warp_attempts", newAttempts.toString())
+
+        if (newAttempts === 3) {
+          // PITY REWARD: +200 XP
+          onXpChange(xp + 200)
+          setXpPopupAmount(200)
+          setShowXpPopup(true)
+          setTimeout(() => setShowXpPopup(false), 1500)
+          alert("🔥 Nice Try! Here's +200 XP for persistence. (Warp cooling down) 🔥")
+        } else {
+          console.log(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
+        }
+      }
+    }
+    else if (cheatCode === "RESETGAME") {
+      // RESET LOGIC
+      const lastReset = localStorage.getItem("speedry_last_reset")
+      const now = Date.now()
+      const COOLDOWN = 24 * 60 * 60 * 1000
+
+      if (!lastReset || now - Number(lastReset) > COOLDOWN) {
+        // PERMIT RESET
+        if (confirm("⚠️ WARNING: This will RESET your Level, Streak, and XP to 0. It will also RESET your Fire Mode cooldown. Are you sure?")) {
+          onLevelUp(1)
+          onXpChange(0) // Wipe XP? Yes, "all your level and streaks will be gone"
+          setStreak(0)
+
+          // RESET FIREMODE COOLDOWN
+          localStorage.removeItem("speedry_last_warp")
+          localStorage.removeItem("speedry_warp_attempts")
+
+          // SET RESET COOLDOWN
+          localStorage.setItem("speedry_last_reset", now.toString())
+
+          alert("🔄 GAME RESET! Fire Mode is available again. Good luck!")
+          // Reload to refresh state cleanly? Or just let React handle it. React is fine.
+          handleRetryLevel() // Reset board
+        }
+      } else {
+        alert("⏳ RESET ON COOLDOWN. You can only reset once every 24 hours.")
+      }
+    }
+  }, [xp, onXpChange, onLevelUp])
+
+  // CHEAT CODE LISTENER
+  useEffect(() => {
+    const CHEAT_CODE = "FIREMODE"
+    let keyBuffer = ""
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Allow cheat only when paused? Or always? User said "if a user pause the game".
+      if (!isPaused) return
+
+      // Append key to buffer
+      if (e.key.length === 1) { // Only single characters
+        keyBuffer += e.key.toUpperCase()
+        if (keyBuffer.length > 20) keyBuffer = keyBuffer.slice(-20) // Keep buffer short
+
+        if (keyBuffer.endsWith("FIREMODE")) {
+          activateCheat("FIREMODE")
+          keyBuffer = ""
+        } else if (keyBuffer.endsWith("RESETGAME")) {
+          activateCheat("RESETGAME")
+          keyBuffer = ""
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isPaused, activateCheat])
 
   useEffect(() => {
     const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
@@ -606,8 +808,8 @@ function GameScreen({
     setFlippedIndices([])
     setStreak(0)
     setShowPreview(true)
-    // Scale preview time: Base 4s + 1s per level. e.g. Lvl 1=5s, Lvl 5=9s
-    setPreviewTimeLeft(4 + level)
+    // Scale preview time: Fixed 4s as requested
+    setPreviewTimeLeft(4)
     setTargetTime(null) // Reset target time
   }, [level, pairsCount, initialTime])
 
@@ -629,61 +831,48 @@ function GameScreen({
     return () => clearInterval(timer)
   }, [hintTimeLeft, isPaused])
 
-  // Preview countdown timer
+  // Preview countdown timer - THE MEMORIZER
   useEffect(() => {
-    if (!showPreview || previewTimeLeft <= 0) return
+    if (!showPreview) return
 
-    const timer = setInterval(() => {
-      setPreviewTimeLeft((t) => {
-        if (t <= 1) {
-          // Flip all cards back down after preview
-          setCards((prevCards) =>
-            prevCards.map((card) => ({
-              ...card,
-              flipped: card.matched,
-            }))
-          )
-          setShowPreview(false)
-          // Set target time for main game timer when preview ends
-          setTargetTime(Date.now() + initialTime * 1000)
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [showPreview, initialTime])
-
-
-  useEffect(() => {
-    // timestamp based timer
-    if (isPaused || levelCompleted || showPreview || !targetTime) {
-      if (isPaused && targetTime) {
-        // If paused, we need to adjust targetTime when unpaused. 
-        // For simplicity, just clearing targetTime here and handling resume would be complex.
-        // Let's stick to simple countdown for pause support but use Date.now for active counting?
-        // Actually, mixing strategies is bad. 
-        // Let's go back to high-res interval but just checking elapsed time.
-        return
-      }
+    if (previewTimeLeft <= 0) {
+      // Flip all cards back down after preview
+      setCards((prevCards) =>
+        prevCards.map((card) => ({
+          ...card,
+          flipped: false, // Ensure they flip back down!
+        }))
+      )
+      setShowPreview(false)
+      // Set target time for main game timer
+      setTargetTime(Date.now() + initialTime * 1000)
       return
     }
 
     const timer = setInterval(() => {
-      const now = Date.now()
-      const remaining = Math.ceil((targetTime - now) / 1000)
-
-      if (remaining <= 0) {
-        setTimeLeft(0)
-        // Handle timeout
-      } else {
-        setTimeLeft(remaining)
-      }
-    }, 100) // Update frequency 10Hz
+      setPreviewTimeLeft((t) => t - 1)
+    }, 1000)
 
     return () => clearInterval(timer)
-  }, [isPaused, levelCompleted, showPreview, targetTime])
+  }, [showPreview, previewTimeLeft, initialTime])
+
+
+  // Main Game Timer - Respects Pause
+  useEffect(() => {
+    if (isPaused || levelCompleted || showPreview) return
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isPaused, levelCompleted, showPreview])
 
 
 
@@ -706,15 +895,7 @@ function GameScreen({
 
       const totalXpEarned = baseXp + streakBonus + speedBonus + levelBonus
 
-      console.log("[v0] Level completed XP calculation:", {
-        baseXp,
-        streakBonus,
-        speedBonus,
-        levelBonus,
-        totalXpEarned,
-        currentXp: xp,
-        newTotal: xp + totalXpEarned,
-      })
+
 
       onXpChange(xp + totalXpEarned)
       setXpPopupAmount(totalXpEarned)
@@ -762,7 +943,7 @@ function GameScreen({
 
             if (newStreak >= 2) {
               const streakXp = 2 * newStreak
-              console.log("[v0] Streak XP awarded:", streakXp, "for streak:", newStreak)
+
               onXpChange(xp + streakXp)
               setXpPopupAmount(streakXp)
               setShowXpPopup(true)
@@ -789,44 +970,63 @@ function GameScreen({
     [cards, flippedIndices, isPaused, streak, hintTimeLeft, xp, onXpChange, showTimedOut, showPreview],
   )
 
-  const handleHint = () => {
-    if (xp < 10 || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) {
-      if (xp < 10 && !hintTimeLeft && !isPaused && !showTimedOut && !showPreview) {
+  const handleHint = (cost: number = 10, pairsToReveal: number = 1) => {
+    if (xp < cost || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) {
+      if (xp < cost && !hintTimeLeft && !isPaused && !showTimedOut && !showPreview) {
         // Optional: visual feedback
       }
       return
     }
 
-    onXpChange(xp - 10)
+    onXpChange(xp - cost)
 
-    const unmatched = cards.filter((c) => !c.matched && !c.flipped)
-    if (unmatched.length >= 2) {
+    let revealedCount = 0
+    let currentCards = [...cards]
+
+    // Attempt to reveal 'pairsToReveal' number of pairs
+    for (let i = 0; i < pairsToReveal; i++) {
+      const unmatched = currentCards.filter((c) => !c.matched && !c.flipped)
+      if (unmatched.length < 2) break // No more pairs to reveal
+
       const firstCard = unmatched[0]
       const matchingCard = unmatched.find((c) => c.id !== firstCard.id && c.value === firstCard.value)
 
       if (matchingCard) {
         const indices = [
-          cards.findIndex((c) => c.id === firstCard.id),
-          cards.findIndex((c) => c.id === matchingCard.id),
+          currentCards.findIndex((c) => c.id === firstCard.id),
+          currentCards.findIndex((c) => c.id === matchingCard.id),
         ]
-        const newCards = [...cards]
+
+        // SUPER HINT (Cost 50) = AUTO MATCH (Permanent)
+        // NORMAL HINT (Cost 10) = PREVIEW (Temporary)
+        const isSuperHint = cost >= 50
+
         indices.forEach((idx) => {
-          newCards[idx].flipped = true
+          currentCards[idx].flipped = true
+          if (isSuperHint) {
+            currentCards[idx].matched = true // PERMANENT MATCH
+          }
         })
-        setCards(newCards)
+        revealedCount++
+      }
+    }
 
+    if (revealedCount > 0) {
+      setCards(currentCards)
+
+      // Only set temporary timer if it's NOT a super hint
+      if (cost < 50) {
         setHintTimeLeft(3)
-
         setTimeout(() => {
-          indices.forEach((idx) => {
-            // Ensure we only flip back if the card hasn't been matched in the meantime (unlikely but safe)
-            if (!newCards[idx].matched) {
-              newCards[idx].flipped = false
-            }
+          setCards(prevCards => {
+            const newCardsCopy = [...prevCards]
+            return newCardsCopy.map(c => c.matched ? c : { ...c, flipped: false })
           })
-          setCards([...newCards])
           setHintTimeLeft(null)
         }, 3000)
+      } else {
+        // If super hint, check for level completion immediately?
+        // The useEffect hook will handle level completion based on 'cards' state change.
       }
     }
   }
@@ -840,7 +1040,8 @@ function GameScreen({
     setFlippedIndices([])
     setStreak(0)
     setShowPreview(true)
-    setPreviewTimeLeft(4 + level)
+    setShowPreview(true)
+    setPreviewTimeLeft(4)
 
     // Regenerate cards and start with them flipped for preview
     const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
@@ -856,9 +1057,26 @@ function GameScreen({
     setCards(cardPairs)
   }
 
+  // Fire Animation Style (Injected)
+  const fireAnimation = isFireMode ? (
+    <style jsx global>{`
+      @keyframes fireMove {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .fire-bg {
+        background: linear-gradient(-45deg, #ff3d00, #ff9100, #ffea00, #ff3d00);
+        background-size: 400% 400%;
+        animation: fireMove 15s ease infinite;
+      }
+    `}</style>
+  ) : null
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-200 to-slate-300 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-md bg-gradient-to-br from-blue-50 to-slate-100 rounded-3xl p-6 shadow-2xl">
+    <div className={`min-h-screen flex flex-col items-center justify-center p-2 overflow-y-auto duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300"}`}>
+      {fireAnimation}
+      <div className={`w-full max-w-sm rounded-2xl p-4 shadow-xl transition-all duration-1000 ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-500 shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
         {showXpPopup && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
             +{xpPopupAmount} XP!
@@ -866,33 +1084,102 @@ function GameScreen({
         )}
 
         {showPreview && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-[800ms]">
+          <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
             <div className="text-center">
-              <h2 className="text-5xl font-black mb-2">GET READY</h2>
-              <div className="text-8xl font-black animate-pulse">{previewTimeLeft}</div>
-              <p className="text-lg font-bold mt-2 opacity-90">Memorize the positions...</p>
+              <h2 className="text-5xl font-black text-white/50 mb-2 tracking-widest uppercase drop-shadow-lg opacity-80">MEMORIZE</h2>
+              <div className="text-9xl font-black text-[#facc15] animate-pulse drop-shadow-2xl opacity-90">{previewTimeLeft}</div>
+            </div>
+            <div className="absolute bottom-12 text-white/90 font-bold text-sm uppercase tracking-widest animate-pulse">
+              Cards will flip soon...
             </div>
           </div>
         )}
 
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => setShowEndGame(true)}
-            className="bg-gradient-to-r from-[#64748b] to-[#475569] hover:from-[#475569] hover:to-[#334155] text-white font-bold text-base px-6 py-2.5 rounded-full shadow-lg transition-all hover:scale-105 flex items-center gap-2"
+            className={`font-bold text-xs px-4 py-2 rounded-xl shadow-md transition-all hover:scale-105 flex items-center gap-1.5 ${isFireMode
+              ? "bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white"
+              : "bg-gradient-to-r from-[#64748b] to-[#475569] hover:from-[#475569] hover:to-[#334155] text-white"}`}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" />
             END GAME
           </button>
+
+          {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
+          {isPaused && (
+            <button
+              onClick={() => {
+                const code = window.prompt("ENTER CHEAT CODE:")
+                if (code) {
+                  const c = code.toUpperCase()
+                  if (c === "FIREMODE") activateCheat("FIREMODE")
+                  if (c === "RESETGAME") activateCheat("RESETGAME")
+                }
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full backdrop-blur-sm transition-all animate-pulse"
+            >
+              <Target className="h-4 w-4" />
+            </button>
+          )}
+
           <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-base px-6 py-2.5 rounded-full shadow-lg">
+            <div className={`${isFireMode ? "bg-gradient-to-r from-red-500 to-yellow-500" : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"} text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap`}>
               {xp} XP
             </div>
-            <button className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white rounded-full p-2.5 shadow-lg transition-all hover:scale-110">
-              <Plus className="h-5 w-5" />
+            <button
+              onClick={() => setShowStore(true)}
+              className={`${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]"} text-white rounded-xl p-2 shadow-md transition-all hover:scale-110`}
+            >
+              <Plus className="h-4 w-4" />
             </button>
           </div>
         </div>
+
+        {/* XP STORE MODAL */}
+        {showStore && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-2xl flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]">
+            <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.3s_ease-out]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[#1e293b] text-xl font-black">GET MORE XP</h3>
+                <button onClick={() => setShowStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
+                  <LogOut className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-xl border border-orange-200 flex justify-between items-center">
+                  <div>
+                    <div className="font-black text-orange-600 text-lg">500 XP</div>
+                    <div className="text-xs text-orange-500 font-bold">Starter Pack</div>
+                  </div>
+                  <div className="bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm">10 GHS</div>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 rounded-xl border border-indigo-200 flex justify-between items-center">
+                  <div>
+                    <div className="font-black text-indigo-600 text-lg">2500 XP</div>
+                    <div className="text-xs text-indigo-500 font-bold">Best Value</div>
+                  </div>
+                  <div className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm">40 GHS</div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <p className="text-center text-xs text-slate-500 font-semibold mb-3">SECURE CHECKOUT WITH</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="bg-[#ffcc00] hover:bg-[#ffdb4d] text-[#1e293b] font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                    <span>MTN MoMo</span>
+                  </button>
+                  <button className="bg-[#00c3f5] hover:bg-[#33cff7] text-white font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                    <span>Paystack</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showEndGame && (
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
@@ -954,27 +1241,37 @@ function GameScreen({
           </div>
         )}
 
-        <div className="bg-white rounded-2xl p-5 mb-6 shadow-md border border-slate-200">
+        <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-xl p-3 shadow-md">
-                <Zap className="h-7 w-7 text-white fill-white" />
+            <div className="flex items-center gap-3">
+              <div className={`${isFireMode ? "bg-gradient-to-br from-red-500 to-orange-600" : "bg-gradient-to-br from-[#3b82f6] to-[#2563eb]"} rounded-lg p-2 shadow-sm`}>
+                <Zap className="h-5 w-5 text-white fill-white" />
               </div>
               <div className="flex flex-col">
-                <div className="text-[#64748b] text-sm font-bold uppercase tracking-wider">STREAK</div>
-                <div className="text-[#1e293b] text-4xl font-black leading-none">{streak}</div>
+                <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">STREAK</div>
+                <div className="text-[#1e293b] text-2xl font-black leading-none">{streak}</div>
               </div>
             </div>
 
-            <div className="h-14 w-px bg-gradient-to-b from-transparent via-slate-300 to-transparent" />
+            <div className="h-8 w-px bg-slate-200" />
 
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end">
-                <div className="text-[#64748b] text-sm font-bold uppercase tracking-wider">LEVEL</div>
-                <div className="text-[#64748b] text-xs font-semibold">XP Boost at {level + 1}</div>
+            {/* TIMER MOVED HERE */}
+            <div className="flex flex-col items-center min-w-[4rem]">
+              <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-0.5">TIME</div>
+              <div className={`text-xl font-black ${timeLeft < 10 ? "text-red-500 animate-pulse" : isFireMode ? "text-orange-600 drop-shadow-sm" : "text-[#1e293b]"}`}>
+                {Math.floor(timeLeft / 60)}:{Math.floor(timeLeft % 60).toString().padStart(2, "0")}
               </div>
-              <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-3 shadow-md min-w-[3.5rem] flex items-center justify-center">
-                <div className="text-white text-4xl font-black">{level}</div>
+            </div>
+
+            <div className="h-8 w-px bg-slate-200" />
+
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">LEVEL</div>
+                <div className="text-[#64748b] text-[10px] font-semibold">XP Boost at {level + 1}</div>
+              </div>
+              <div className={`${isFireMode ? "bg-gradient-to-br from-red-600 to-orange-600 animate-pulse border border-yellow-400" : "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed]"} rounded-lg p-2 shadow-sm min-w-[2.5rem] flex items-center justify-center`}>
+                <div className="text-white text-2xl font-black">{level}</div>
               </div>
             </div>
           </div>
@@ -988,44 +1285,51 @@ function GameScreen({
           gridSize={gridCols}
         />
 
-        <div className="flex gap-0 mb-6 rounded-2xl overflow-hidden shadow-lg">
+        <div className="flex gap-2 mb-4">
+          {/* Normal Hint */}
           <button
-            onClick={handleHint}
+            onClick={() => handleHint(10, 1)}
             disabled={xp < 10 || hintTimeLeft !== null || isPaused}
-            className="flex-1 bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xl py-5 transition-all hover:from-[#7c3aed] hover:to-[#6d28d9] flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]"} disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
           >
-            <Zap className="h-5 w-5" />
-            HINT (10 XP)
+            <Zap className="h-3.5 w-3.5" />
+            {hintTimeLeft !== null ? `VISIBLE (${hintTimeLeft}s)` : "HINT (10 XP)"}
           </button>
-          <div className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-2xl flex items-center justify-center border-l-2 border-white/20">
-            {hintTimeLeft !== null
-              ? `${hintTimeLeft}s`
-              : `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, "0")}`}
-          </div>
+
+          {/* Super Hint */}
+          <button
+            onClick={() => handleHint(50, 2)}
+            disabled={xp < 50 || hintTimeLeft !== null || isPaused}
+            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-yellow-400" : "bg-gradient-to-r from-[#ec4899] to-[#db2777] hover:from-[#db2777] hover:to-[#be185d] border border-pink-300"} disabled:border-none disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
+          >
+            <Zap className="h-3.5 w-3.5 fill-white" />
+            SUPER (50 XP)
+          </button>
         </div>
 
-        <div className="flex rounded-2xl overflow-hidden shadow-lg mb-6">
+        <div className="flex rounded-xl overflow-hidden shadow-md mb-2">
           <button
-            onClick={() => setIsPaused(false)}
-            disabled={!isPaused}
-            className={`flex-1 font-black text-2xl py-5 transition-all duration-300 flex items-center justify-center gap-3 ${!isPaused
-              ? "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white"
-              : "bg-slate-200 text-slate-400 hover:bg-slate-300"
+            onClick={() => setIsPaused(!isPaused)}
+            className={`flex-1 font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
+              ? isFireMode
+                ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
+                : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
+              : isFireMode
+                ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
+                : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
               }`}
           >
-            <Play className={`h-6 w-6 ${!isPaused ? "fill-white" : ""}`} />
-            PLAY
-          </button>
-          <button
-            onClick={() => setIsPaused(true)}
-            disabled={isPaused}
-            className={`flex-1 font-black text-2xl py-5 transition-all duration-300 flex items-center justify-center gap-3 ${isPaused
-              ? "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white"
-              : "bg-slate-200 text-slate-400 hover:bg-slate-300"
-              }`}
-          >
-            <Pause className={`h-6 w-6 ${isPaused ? "fill-white" : ""}`} />
-            PAUSE
+            {!isPaused ? (
+              <>
+                <Pause className="h-6 w-6 fill-white" />
+                PAUSE
+              </>
+            ) : (
+              <>
+                <Play className="h-6 w-6 fill-white" />
+                PLAY
+              </>
+            )}
           </button>
         </div>
 
@@ -1054,9 +1358,9 @@ function GameOverScreen({ level, onRetry, onMenu }: { level: number; onRetry: ()
         </Button>
         <Button
           onClick={onMenu}
-          className="w-full bg-[#a8c5e8] hover:bg-[#8faddb] text-white font-black text-2xl py-7 rounded-3xl shadow-md h-auto"
+          className="w-full bg-[#64748b] hover:bg-[#475569] text-white font-black text-2xl py-7 rounded-3xl shadow-md h-auto transition-all hover:scale-[1.02]"
         >
-          MAIN MENU
+          BACK TO MENU
         </Button>
       </div>
     </div>
@@ -1072,9 +1376,9 @@ function VictoryScreen({ level, onNextLevel, onMenu }: { level: number; onNextLe
       <div className="flex gap-4">
         <Button
           onClick={onMenu}
-          className="bg-[#a8c5e8] hover:bg-[#8faddb] text-white font-black text-2xl py-6 rounded-3xl shadow-md h-auto px-8"
+          className="bg-[#64748b] hover:bg-[#475569] text-white font-black text-2xl py-6 rounded-3xl shadow-md h-auto px-8 transition-all hover:scale-[1.02]"
         >
-          MENU
+          BACK TO MENU
         </Button>
         <Button
           onClick={onNextLevel}
@@ -1466,6 +1770,7 @@ function MultiplayerGameScreen({
           [`rooms/${roomId}/tournament/activePlayerId`]: opponentId,
           [`rooms/${roomId}/tournament/round`]: nextRound,
           [`rooms/${roomId}/tournament/roundStartTime`]: Date.now(),
+          [`rooms/${roomId}/currentDeck`]: generateDeck(newLevel),
           // Special: Check Game 5
           [`rooms/${roomId}/tournament/status`]: nextRound === 5 ? "game_5_intro" : "playing"
         }
@@ -1483,6 +1788,7 @@ function MultiplayerGameScreen({
           updates[`rooms/${roomId}/tournament/activePlayerId`] = opponentId
           updates[`rooms/${roomId}/tournament/round`] = nextRound
           updates[`rooms/${roomId}/tournament/roundStartTime`] = Date.now()
+          updates[`rooms/${roomId}/currentDeck`] = generateDeck(roomData.players[opponentId]?.currentLevel || 1) // Opponent plays their level
           updates[`rooms/${roomId}/tournament/status`] = nextRound === 5 ? "game_5_intro" : "playing"
 
           // Allow retry next time? Or reset lives?
@@ -1495,6 +1801,7 @@ function MultiplayerGameScreen({
       opponentData={opponentData}
       xp={xp}
       onXpChange={onXpChange}
+      initialDeck={roomData.currentDeck}
     />
   )
 }
@@ -1566,6 +1873,7 @@ function MultiplayerGameplay({
   xp,
   onXpChange,
   tournament,
+  initialDeck,
 }: {
   level: number
   lives: number
@@ -1575,24 +1883,24 @@ function MultiplayerGameplay({
   xp: number
   onXpChange: (newXp: number) => void
   tournament?: any
+  initialDeck?: string[]
 }) {
+  const pairsCount = level === 1 ? 2 : level === 2 ? 3 : 2 + level
   const gridSize = Math.min(6, 2 + Math.floor(level / 2)) * 2
-  const cardCount = gridSize * 3
-  const pairCount = cardCount / 2
-  const pairsCount = 1 + level // Logic logic might need tweaks if levels reset
 
   // Timer: Server Authoritative
   const [timeLeft, setTimeLeft] = useState(0)
 
   useEffect(() => {
     if (tournament?.roundStartTime) {
-      const duration = 6 + (1 + level) * 3
+      // Use logic: L1=6s, L2=10s, +4s
+      const duration = level === 1 ? 6 : level === 2 ? 10 : 10 + (level - 2) * 4
       const endAt = tournament.roundStartTime + (duration * 1000)
       const remaining = Math.ceil((endAt - Date.now()) / 1000)
       setTimeLeft(Math.max(0, remaining))
     } else {
-      // Fallback for local testing or old mode
-      setTimeLeft(6 + (1 + level) * 3)
+      // Fallback
+      setTimeLeft(level === 1 ? 6 : level === 2 ? 10 : 10 + (level - 2) * 4)
     }
   }, [tournament, level])
   const [targetTime, setTargetTime] = useState<number | null>(null)
@@ -1646,18 +1954,21 @@ function MultiplayerGameplay({
   }, [hintTimer])
 
   const initializeCards = () => {
-    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
-    const selectedIcons = Array.from({ length: pairCount }, (_, i) => icons[i % icons.length])
-    const deck = [...selectedIcons, ...selectedIcons]
-    const shuffled = deck.sort(() => Math.random() - 0.5)
-    setCards(shuffled.map((value, id) => ({ id, value, matched: false, flipped: false })))
+    let deck: string[] = []
+
+    if (initialDeck && initialDeck.length > 0) {
+      deck = [...initialDeck]
+    } else {
+      const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+      const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+      deck = [...selectedIcons, ...selectedIcons].sort(() => Math.random() - 0.5)
+    }
+
+    setCards(deck.map((value, id) => ({ id, value, matched: false, flipped: false })))
     setFlippedIndices([])
     setStreak(0)
 
-    // Timer logic
-    const duration = 6 + pairsCount * 3
-    setTimeLeft(duration)
-    setTargetTime(Date.now() + duration * 1000)
+    // Timer logic handled by effect
     setIsPaused(false)
   }
 
