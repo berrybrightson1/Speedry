@@ -3,12 +3,13 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 
-import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History } from "lucide-react"
+import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User, Cloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import useEmblaCarousel from "embla-carousel-react"
 import { useAutoAnimate } from '@formkit/auto-animate/react'
-import { database, ref, set, onValue, update, push, runTransaction, query, orderByChild, equalTo, get } from "@/lib/firebase"
+import { database, ref, set, onValue, update, remove, push, runTransaction, query, orderByChild, equalTo, get, auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged } from "@/lib/firebase"
+import { User as FirebaseUser } from "firebase/auth"
 
 type Screen =
   | "welcome"
@@ -96,7 +97,115 @@ export default function SpeedryConquest() {
   // GLOBAL STORE STATE
   const [showGlobalStore, setShowGlobalStore] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-  const [helpTab, setHelpTab] = useState("guide") // guide, secrets, updates
+  const [helpTab, setHelpTab] = useState("guide")
+
+  // Auth State
+  const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  // AUTH & SYNC INITIALIZATION
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser)
+      if (currentUser) {
+        handleCloudSync(currentUser)
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // CLOUD SYNC LOGIC (Keep Best Strategy)
+  const handleCloudSync = async (currentUser: FirebaseUser) => {
+    setIsSyncing(true)
+    try {
+      const userRef = ref(database, `users/${currentUser.uid}`)
+      const snapshot = await get(userRef)
+
+      if (snapshot.exists()) {
+        const cloudData = snapshot.val()
+        const localBestLevel = Number(localStorage.getItem("speedry_best_level") || 1)
+        const localXp = Number(localStorage.getItem("speedry_xp") || 0)
+
+        console.log("Syncing...", { cloud: cloudData, local: { bestLevel: localBestLevel, xp: localXp } })
+
+        // STRATEGY: If Cloud is Better -> RESTORE
+        if (cloudData.bestLevel > localBestLevel || (cloudData.bestLevel === localBestLevel && cloudData.xp > localXp)) {
+          console.log("Restoring from Cloud...")
+          setXp(cloudData.xp)
+          setBestLevel(cloudData.bestLevel)
+          // If current level is locked in local but unlocked in cloud, logic usually handles "level" via bestLevel? 
+          // We don't overwrite 'level' (current session) unless necessary, but let's be safe:
+          // Actually, 'bestLevel' determines unlocks. 'level' is just current play index. Use cloud data if reasonable.
+
+          localStorage.setItem("speedry_xp", cloudData.xp.toString())
+          localStorage.setItem("speedry_best_level", cloudData.bestLevel.toString())
+
+          if (cloudData.playerId) {
+            setPlayerId(cloudData.playerId)
+            localStorage.setItem("speedry_player_id", cloudData.playerId)
+          }
+
+          toast.success("Progress Restored from Cloud!", { icon: "☁️" })
+        } else {
+          // Local is Better/Equal -> PUSH to Cloud (handled by auto-save effect below)
+          console.log("Local is newer. Will push to cloud.")
+        }
+      } else {
+        // No Cloud Data -> Create New
+        console.log("Creating new cloud profile...")
+        saveToCloud(currentUser)
+      }
+    } catch (error) {
+      console.error("Sync Error:", error)
+      toast.error("Failed to sync progress")
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  // AUTO-SAVE TO CLOUD
+  // Debounce this in real app, but for now simple effect is okay (Firebase handles socket spam well)
+  useEffect(() => {
+    if (user && !isLoading) {
+      saveToCloud(user)
+    }
+  }, [xp, bestLevel, user, isLoading])
+
+  const saveToCloud = (currentUser: FirebaseUser) => {
+    const userRef = ref(database, `users/${currentUser.uid}`)
+
+    // Safety check: Don't overwrite with 0 if we just loaded?
+    // The isLoading check handles initial load.
+
+    update(userRef, {
+      xp,
+      bestLevel,
+      lastUpdated: Date.now(),
+      playerId,
+      email: currentUser.email,
+      displayName: currentUser.displayName
+    }).catch(err => console.error("Cloud Save Failed", err))
+  }
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider)
+      // The onAuthStateChanged hook handles the rest
+    } catch (error) {
+      console.error("Login Failed", error)
+      toast.error("Login failed. Try again.")
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      setUser(null)
+      toast.info("Logged out")
+    } catch (error) {
+      console.error("Logout Failed", error)
+    }
+  } // guide, secrets, updates
 
   // PAYMENT HANDLER (LIFTED)
   const handlePaystackPayment = (amountGHS: number) => {
@@ -405,6 +514,10 @@ export default function SpeedryConquest() {
             bestLevel={bestLevel}
             xp={xp}
             onOpenStore={() => setShowGlobalStore(true)}
+            user={user}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            isSyncing={isSyncing}
           />
         )}
 
@@ -634,6 +747,10 @@ function MenuScreen({
   bestLevel,
   xp,
   onOpenStore,
+  user,
+  onLogin,
+  onLogout,
+  isSyncing
 }: {
   onQuickPlay: () => void
   onContinue: () => void
@@ -644,9 +761,40 @@ function MenuScreen({
   onOpenStore: () => void
   bestLevel: number
   xp: number
+  user: FirebaseUser | null
+  onLogin: () => void
+  onLogout: () => void
+  isSyncing: boolean
 }) {
   return (
-    <div className="flex flex-col items-center justify-center space-y-8 py-12">
+      <div className="absolute top-4 left-4 flex items-center gap-2">
+        {user ? (
+          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 pr-3 rounded-full border border-white/50 shadow-sm animate-in fade-in slide-in-from-left-4">
+             {/* Avatar or Icon */}
+             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner">
+                {user.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" /> : <User className="w-4 h-4" />}
+             </div>
+             <div className="text-left">
+               <p className="text-[10px] font-bold text-slate-500 leading-none">SIGNED IN</p>
+               <p className="text-xs font-black text-slate-700 leading-none truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</p>
+             </div>
+             <button onClick={onLogout} className="ml-2 p-1 hover:bg-red-100 rounded-full group" title="Logout">
+               <LogOut className="w-3 h-3 text-slate-400 group-hover:text-red-500" />
+             </button>
+          </div>
+        ) : (
+          <button 
+            onClick={onLogin}
+            className="flex items-center gap-2 bg-white p-2 pr-4 rounded-full shadow-md border border-slate-100 hover:scale-105 active:scale-95 transition-all group"
+          >
+            <div className="bg-slate-100 p-1.5 rounded-full group-hover:bg-indigo-100 transition-colors">
+              <User className="w-4 h-4 text-slate-600 group-hover:text-indigo-600" />
+            </div>
+            <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600">Login to Cloud Save</span>
+          </button>
+        )}
+      </div>
+
       <div className="text-center">
         <h1 className="text-3xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
@@ -714,7 +862,7 @@ function MenuScreen({
 
 
       <div className="text-center text-[#64748b] text-sm font-semibold mt-4">Developer Rebry Creatives</div>
-    </div>
+    </div >
   )
 
 }
