@@ -800,374 +800,380 @@ function GameScreen({
         const newAttempts = attempts + 1
         localStorage.setItem("speedry_warp_attempts", newAttempts.toString())
 
-        if (newAttempts === 3) {
-          // PITY REWARD: +200 XP
-          onXpChange(xp + 200)
-          setXpPopupAmount(200)
+        callback: (response: any) => {
+          let xpReward = 0
+          if (amountGHS === 5) xpReward = 250
+          else if (amountGHS === 10) xpReward = 500
+          else if (amountGHS === 20) xpReward = 1200
+          else if (amountGHS === 30) xpReward = 1800
+          else if (amountGHS === 40) xpReward = 2500
+
+          onXpChange(xp + xpReward)
+          setXpPopupAmount(xpReward)
           setShowXpPopup(true)
-          setTimeout(() => setShowXpPopup(false), 1500)
-          toast("ðŸ”¥ Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: 'ðŸ”¥' })
-        } else {
-          toast.error(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
-        }
-      }
-    }
-    else if (cheatCode === "RESETGAME") {
-      // Show confirmation modal
-      setShowResetConfirm(true)
-    }
-  }, [xp, onXpChange, onLevelUp, onWarp, onBack])
-
-  const handleResetConfirm = () => {
-    const lastReset = localStorage.getItem("speedry_last_reset")
-    const now = Date.now()
-    const COOLDOWN = 24 * 60 * 60 * 1000
-
-    if (!lastReset || now - Number(lastReset) > COOLDOWN) {
-      onLevelUp(1)
-      onXpChange(0)
-      setStreak(0)
-
-      // RESET FIREMODE COOLDOWN
-      localStorage.removeItem("speedry_last_warp")
-      localStorage.removeItem("speedry_warp_attempts")
-
-      // Set Reset Cooldown
-      localStorage.setItem("speedry_last_reset", now.toString())
-
-      toast.success("â™»ï¸ RESET COMPLETE! Level, XP, Streak wiped. Fire Mode unlocked!")
-    } else {
-      toast.error("Reset on Cooldown! (Once per 24h)")
-    }
-    setShowResetConfirm(false)
-  }
-
-
-
-  // CHEAT CODE LISTENER
-  useEffect(() => {
-    const CHEAT_CODE = "FIREMODE"
-    let keyBuffer = ""
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Allow cheat only when paused? Or always? User said "if a user pause the game".
-      if (!isPaused) return
-
-      // Append key to buffer
-      if (e.key.length === 1) { // Only single characters
-        keyBuffer += e.key.toUpperCase()
-        if (keyBuffer.length > 20) keyBuffer = keyBuffer.slice(-20) // Keep buffer short
-
-        if (keyBuffer.endsWith("FIREMODE")) {
-          activateCheat("FIREMODE")
-          keyBuffer = ""
-        } else if (keyBuffer.endsWith("RESETGAME")) {
-          activateCheat("RESETGAME")
-          keyBuffer = ""
-        }
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isPaused, activateCheat])
-
-  // Determine Theme based on Loop
-  const themeIndex = Math.floor(((level - 1) % 30) / 10)
-  const currentTheme = THEMES[themeIndex] || THEMES[0]
-
-  useEffect(() => {
-    // Select icons from theme
-    const icons = currentTheme.icons
-    const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
-    const cardPairs = [...selectedIcons, ...selectedIcons]
-      .sort(() => Math.random() - 0.5)
-      .map((value, i) => ({
-        id: i,
-        value,
-        matched: false,
-        flipped: true, // Start with all cards flipped for preview
-      }))
-    setCards(cardPairs)
-    setTimeLeft(initialTime)
-    setLevelCompleted(false)
-    setFlippedIndices([])
-    setStreak(0)
-    setShowPreview(true)
-    // Scale preview time: Fixed 4s as requested
-    setPreviewTimeLeft(4)
-    setTargetTime(null) // Reset target time
-  }, [level, pairsCount, initialTime])
-
-  // Reset timer when level changes
-  useEffect(() => {
-    setTimeLeft(initialTime)
-    setLevelCompleted(false)
-    setTargetTime(null)
-  }, [level, initialTime])
-
-  useEffect(() => {
-    if (hintTimeLeft === null || hintTimeLeft <= 0 || isPaused) return
-    const timer = setInterval(() => {
-      setHintTimeLeft((t) => {
-        if (t === null || t <= 1) return null
-        return t - 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [hintTimeLeft, isPaused])
-
-  // Preview countdown timer - THE MEMORIZER
-  useEffect(() => {
-    if (!showPreview) return
-
-    if (previewTimeLeft <= 0) {
-      // Flip all cards back down after preview
-      setCards((prevCards) =>
-        prevCards.map((card) => ({
-          ...card,
-          flipped: false, // Ensure they flip back down!
-        }))
-      )
-      setShowPreview(false)
-      // Set target time for main game timer
-      setTargetTime(Date.now() + initialTime * 1000)
-      return
-    }
-
-    const timer = setInterval(() => {
-      setPreviewTimeLeft((t) => t - 1)
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [showPreview, previewTimeLeft, initialTime])
-
-
-  // Main Game Timer - Respects Pause AND Hint
-  useEffect(() => {
-    if (isPaused || levelCompleted || showPreview || hintTimeLeft !== null) return
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [isPaused, levelCompleted, showPreview, hintTimeLeft])
-
-
-
-  useEffect(() => {
-    if (timeLeft === 0 && !levelCompleted) {
-      setShowTimedOut(true)
-      setIsPaused(true) // Pause the game
-    }
-  }, [timeLeft, levelCompleted])
-
-  useEffect(() => {
-    if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
-      setLevelCompleted(true)
-      onLevelUnlock(level + 1) // Save progress immediately upon completion
-
-      // Calculate XP based on performance
-      const baseXp = 10
-      const streakBonus = streak >= 3 ? 5 : 0
-      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
-      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
-
-      // Penalty: If hints used, forfeit streak and speed bonuses
-      const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
-
-      const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
-      const streakBonus = streak >= 3 ? 5 : 0 // Bonus for high streak
-      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0 // Bonus for fast completion
-      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0 // XP boost at level 4+
-
-      // Calculate XP based on performance
-      const baseXp = 10
-      const streakBonus = streak >= 3 ? 5 : 0
-      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
-      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
-
-      // Penalty: If hints used, forfeit streak and speed bonuses
-      const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
-
-      const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
-
-
-
-      onXpChange(xp + totalXpEarned)
-      setXpPopupAmount(totalXpEarned)
-      setShowXpPopup(true)
-
-      const timerId = setTimeout(() => {
-        setShowXpPopup(false)
-        // Redundant setLevelCompleted(true) removed here to prevent race condition
-      }, 1500)
-
-      return () => clearTimeout(timerId)
-    }
-  }, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, xp])
-
-  const handleCardClick = useCallback(
-    (index: number) => {
-      if (
-        isPaused ||
-        cards[index].matched ||
-        cards[index].flipped ||
-        flippedIndices.length >= 2 ||
-        hintTimeLeft !== null ||
-        showTimedOut || // Prevent clicks when timed out modal is showing
-        showPreview // Prevent clicks during preview
-      )
-        return
-
-      const newCards = [...cards]
-      newCards[index].flipped = true
-      setCards(newCards)
-
-      const newFlipped = [...flippedIndices, index]
-      setFlippedIndices(newFlipped)
-
-      if (newFlipped.length === 2) {
-        const [first, second] = newFlipped
-        const isMatch = cards[first].value === cards[second].value
-
-        setTimeout(() => {
-          const updatedCards = [...newCards]
-          if (isMatch) {
-            updatedCards[first].matched = true
-            updatedCards[second].matched = true
-
-            const newStreak = streak + 1
-            setStreak(newStreak)
-
-            if (newStreak >= 2) {
-              const streakXp = 2 * newStreak
-
-              onXpChange(xp + streakXp)
-              setXpPopupAmount(streakXp)
-              setShowXpPopup(true)
-              setTimeout(() => setShowXpPopup(false), 1500)
-            }
-          } else {
-            updatedCards[first].flipped = false
-            updatedCards[second].flipped = false
-            setStreak(0)
-
-            setLives((l) => {
-              const newLives = l - 1
-              return newLives
-            })
-          }
-
-          setCards(updatedCards)
-          setFlippedIndices([])
-          setCards(updatedCards)
-          setFlippedIndices([])
-        }, 500)
-      }
-    },
-    [cards, flippedIndices, isPaused, streak, hintTimeLeft, xp, onXpChange, showTimedOut, showPreview],
-  )
-
-  const handleHint = (cost: number = 10, pairsToReveal: number = 1) => {
-    if (xp < cost || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) {
-      if (xp < cost && !hintTimeLeft && !isPaused && !showTimedOut && !showPreview) {
-        // Optional: visual feedback
-      }
-      return
-    }
-
-    onXpChange(xp - cost)
-    setHintsUsed(h => h + 1) // Track usage
-    setHintsUsed(h => h + 1) // Track usage
-
-    let revealedCount = 0
-    let currentCards = [...cards]
-
-    // Attempt to reveal 'pairsToReveal' number of pairs
-    for (let i = 0; i < pairsToReveal; i++) {
-      const unmatched = currentCards.filter((c) => !c.matched && !c.flipped)
-      if (unmatched.length < 2) break // No more pairs to reveal
-
-      const firstCard = unmatched[0]
-      const matchingCard = unmatched.find((c) => c.id !== firstCard.id && c.value === firstCard.value)
-
-      if (matchingCard) {
-        const indices = [
-          currentCards.findIndex((c) => c.id === firstCard.id),
-          currentCards.findIndex((c) => c.id === matchingCard.id),
-        ]
-
-        // SUPER HINT (Cost 50) = AUTO MATCH (Permanent)
-        // NORMAL HINT (Cost 10) = PREVIEW (Temporary)
-        const isSuperHint = cost >= 50
-
-        indices.forEach((idx) => {
-          currentCards[idx].flipped = true
-          if (isSuperHint) {
-            currentCards[idx].matched = true // PERMANENT MATCH
-          }
-        })
-        revealedCount++
-      }
-    }
-
-    if (revealedCount > 0) {
-      setCards(currentCards)
-
-      // Only set temporary timer if it's NOT a super hint
-      if (cost < 50) {
-        setHintTimeLeft(3)
-        setTimeout(() => {
-          setCards(prevCards => {
-            const newCardsCopy = [...prevCards]
-            return newCardsCopy.map(c => c.matched ? c : { ...c, flipped: false })
-          })
-          setHintTimeLeft(null)
-        }, 3000)
+          toast.success(`Payment Verified! +${xpReward} XP Added.`)
+        }, toast("ðŸ”¥ Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: 'ðŸ”¥' })
       } else {
-        // If super hint, check for level completion immediately?
-        // The useEffect hook will handle level completion based on 'cards' state change.
+        toast.error(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
+      }
+    }
+  }
+    else if (cheatCode === "RESETGAME") {
+    // Show confirmation modal
+    setShowResetConfirm(true)
+  }
+}, [xp, onXpChange, onLevelUp, onWarp, onBack])
+
+const handleResetConfirm = () => {
+  const lastReset = localStorage.getItem("speedry_last_reset")
+  const now = Date.now()
+  const COOLDOWN = 24 * 60 * 60 * 1000
+
+  if (!lastReset || now - Number(lastReset) > COOLDOWN) {
+    onLevelUp(1)
+    onXpChange(0)
+    setStreak(0)
+
+    // RESET FIREMODE COOLDOWN
+    localStorage.removeItem("speedry_last_warp")
+    localStorage.removeItem("speedry_warp_attempts")
+
+    // Set Reset Cooldown
+    localStorage.setItem("speedry_last_reset", now.toString())
+
+    toast.success("â™»ï¸ RESET COMPLETE! Level, XP, Streak wiped. Fire Mode unlocked!")
+  } else {
+    toast.error("Reset on Cooldown! (Once per 24h)")
+  }
+  setShowResetConfirm(false)
+}
+
+
+
+// CHEAT CODE LISTENER
+useEffect(() => {
+  const CHEAT_CODE = "FIREMODE"
+  let keyBuffer = ""
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Allow cheat only when paused? Or always? User said "if a user pause the game".
+    if (!isPaused) return
+
+    // Append key to buffer
+    if (e.key.length === 1) { // Only single characters
+      keyBuffer += e.key.toUpperCase()
+      if (keyBuffer.length > 20) keyBuffer = keyBuffer.slice(-20) // Keep buffer short
+
+      if (keyBuffer.endsWith("FIREMODE")) {
+        activateCheat("FIREMODE")
+        keyBuffer = ""
+      } else if (keyBuffer.endsWith("RESETGAME")) {
+        activateCheat("RESETGAME")
+        keyBuffer = ""
       }
     }
   }
 
-  const gridCols = Math.ceil(Math.sqrt(cards.length))
+  window.addEventListener("keydown", handleKeyDown)
+  return () => window.removeEventListener("keydown", handleKeyDown)
+}, [isPaused, activateCheat])
 
-  const handleRetryLevel = () => {
-    setShowTimedOut(false)
-    setIsPaused(false)
-    setTimeLeft(initialTime)
-    setFlippedIndices([])
-    setStreak(0)
-    setShowPreview(true)
-    setShowPreview(true)
-    setPreviewTimeLeft(4)
+// Determine Theme based on Loop
+const themeIndex = Math.floor(((level - 1) % 30) / 10)
+const currentTheme = THEMES[themeIndex] || THEMES[0]
 
-    // Regenerate cards and start with them flipped for preview
-    const icons = currentTheme.icons
-    const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
-    const cardPairs = [...selectedIcons, ...selectedIcons]
-      .sort(() => Math.random() - 0.5)
-      .map((value, i) => ({
-        id: i,
-        value,
-        matched: false,
-        flipped: true, // Start with cards flipped for preview
+useEffect(() => {
+  // Select icons from theme
+  const icons = currentTheme.icons
+  const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+  const cardPairs = [...selectedIcons, ...selectedIcons]
+    .sort(() => Math.random() - 0.5)
+    .map((value, i) => ({
+      id: i,
+      value,
+      matched: false,
+      flipped: true, // Start with all cards flipped for preview
+    }))
+  setCards(cardPairs)
+  setTimeLeft(initialTime)
+  setLevelCompleted(false)
+  setFlippedIndices([])
+  setStreak(0)
+  setShowPreview(true)
+  // Scale preview time: Fixed 4s as requested
+  setPreviewTimeLeft(4)
+  setTargetTime(null) // Reset target time
+}, [level, pairsCount, initialTime])
+
+// Reset timer when level changes
+useEffect(() => {
+  setTimeLeft(initialTime)
+  setLevelCompleted(false)
+  setTargetTime(null)
+}, [level, initialTime])
+
+useEffect(() => {
+  if (hintTimeLeft === null || hintTimeLeft <= 0 || isPaused) return
+  const timer = setInterval(() => {
+    setHintTimeLeft((t) => {
+      if (t === null || t <= 1) return null
+      return t - 1
+    })
+  }, 1000)
+  return () => clearInterval(timer)
+}, [hintTimeLeft, isPaused])
+
+// Preview countdown timer - THE MEMORIZER
+useEffect(() => {
+  if (!showPreview) return
+
+  if (previewTimeLeft <= 0) {
+    // Flip all cards back down after preview
+    setCards((prevCards) =>
+      prevCards.map((card) => ({
+        ...card,
+        flipped: false, // Ensure they flip back down!
       }))
-    setCards(cardPairs)
+    )
+    setShowPreview(false)
+    // Set target time for main game timer
+    setTargetTime(Date.now() + initialTime * 1000)
+    return
   }
 
-  // Fire Animation Style (Injected)
-  const fireAnimation = isFireMode ? (
-    <style jsx global>{`
+  const timer = setInterval(() => {
+    setPreviewTimeLeft((t) => t - 1)
+  }, 1000)
+
+  return () => clearInterval(timer)
+}, [showPreview, previewTimeLeft, initialTime])
+
+
+// Main Game Timer - Respects Pause AND Hint
+useEffect(() => {
+  if (isPaused || levelCompleted || showPreview || hintTimeLeft !== null) return
+
+  const timer = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        clearInterval(timer)
+        return 0
+      }
+      return prev - 1
+    })
+  }, 1000)
+
+  return () => clearInterval(timer)
+}, [isPaused, levelCompleted, showPreview, hintTimeLeft])
+
+
+
+useEffect(() => {
+  if (timeLeft === 0 && !levelCompleted) {
+    setShowTimedOut(true)
+    setIsPaused(true) // Pause the game
+  }
+}, [timeLeft, levelCompleted])
+
+useEffect(() => {
+  if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
+    setLevelCompleted(true)
+    onLevelUnlock(level + 1) // Save progress immediately upon completion
+
+    // Calculate XP based on performance
+    const baseXp = 10
+    const streakBonus = streak >= 3 ? 5 : 0
+    const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
+    const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
+
+    // Penalty: If hints used, forfeit streak and speed bonuses
+    const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
+
+    const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
+    const streakBonus = streak >= 3 ? 5 : 0 // Bonus for high streak
+    const speedBonus = timeLeft > initialTime / 2 ? 5 : 0 // Bonus for fast completion
+    const levelBonus = level >= 4 ? Math.floor(level / 2) : 0 // XP boost at level 4+
+
+    // Calculate XP based on performance
+    const baseXp = 10
+    const streakBonus = streak >= 3 ? 5 : 0
+    const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
+    const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
+
+    // Penalty: If hints used, forfeit streak and speed bonuses
+    const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
+
+    const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
+
+
+
+    onXpChange(xp + totalXpEarned)
+    setXpPopupAmount(totalXpEarned)
+    setShowXpPopup(true)
+
+    const timerId = setTimeout(() => {
+      setShowXpPopup(false)
+      // Redundant setLevelCompleted(true) removed here to prevent race condition
+    }, 1500)
+
+    return () => clearTimeout(timerId)
+  }
+}, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, xp])
+
+const handleCardClick = useCallback(
+  (index: number) => {
+    if (
+      isPaused ||
+      cards[index].matched ||
+      cards[index].flipped ||
+      flippedIndices.length >= 2 ||
+      hintTimeLeft !== null ||
+      showTimedOut || // Prevent clicks when timed out modal is showing
+      showPreview // Prevent clicks during preview
+    )
+      return
+
+    const newCards = [...cards]
+    newCards[index].flipped = true
+    setCards(newCards)
+
+    const newFlipped = [...flippedIndices, index]
+    setFlippedIndices(newFlipped)
+
+    if (newFlipped.length === 2) {
+      const [first, second] = newFlipped
+      const isMatch = cards[first].value === cards[second].value
+
+      setTimeout(() => {
+        const updatedCards = [...newCards]
+        if (isMatch) {
+          updatedCards[first].matched = true
+          updatedCards[second].matched = true
+
+          const newStreak = streak + 1
+          setStreak(newStreak)
+
+          if (newStreak >= 2) {
+            const streakXp = 2 * newStreak
+
+            onXpChange(xp + streakXp)
+            setXpPopupAmount(streakXp)
+            setShowXpPopup(true)
+            setTimeout(() => setShowXpPopup(false), 1500)
+          }
+        } else {
+          updatedCards[first].flipped = false
+          updatedCards[second].flipped = false
+          setStreak(0)
+
+          setLives((l) => {
+            const newLives = l - 1
+            return newLives
+          })
+        }
+
+        setCards(updatedCards)
+        setFlippedIndices([])
+        setCards(updatedCards)
+        setFlippedIndices([])
+      }, 500)
+    }
+  },
+  [cards, flippedIndices, isPaused, streak, hintTimeLeft, xp, onXpChange, showTimedOut, showPreview],
+)
+
+const handleHint = (cost: number = 10, pairsToReveal: number = 1) => {
+  if (xp < cost || hintTimeLeft !== null || isPaused || showTimedOut || showPreview) {
+    if (xp < cost && !hintTimeLeft && !isPaused && !showTimedOut && !showPreview) {
+      // Optional: visual feedback
+    }
+    return
+  }
+
+  onXpChange(xp - cost)
+  setHintsUsed(h => h + 1) // Track usage
+  setHintsUsed(h => h + 1) // Track usage
+
+  let revealedCount = 0
+  let currentCards = [...cards]
+
+  // Attempt to reveal 'pairsToReveal' number of pairs
+  for (let i = 0; i < pairsToReveal; i++) {
+    const unmatched = currentCards.filter((c) => !c.matched && !c.flipped)
+    if (unmatched.length < 2) break // No more pairs to reveal
+
+    const firstCard = unmatched[0]
+    const matchingCard = unmatched.find((c) => c.id !== firstCard.id && c.value === firstCard.value)
+
+    if (matchingCard) {
+      const indices = [
+        currentCards.findIndex((c) => c.id === firstCard.id),
+        currentCards.findIndex((c) => c.id === matchingCard.id),
+      ]
+
+      // SUPER HINT (Cost 50) = AUTO MATCH (Permanent)
+      // NORMAL HINT (Cost 10) = PREVIEW (Temporary)
+      const isSuperHint = cost >= 50
+
+      indices.forEach((idx) => {
+        currentCards[idx].flipped = true
+        if (isSuperHint) {
+          currentCards[idx].matched = true // PERMANENT MATCH
+        }
+      })
+      revealedCount++
+    }
+  }
+
+  if (revealedCount > 0) {
+    setCards(currentCards)
+
+    // Only set temporary timer if it's NOT a super hint
+    if (cost < 50) {
+      setHintTimeLeft(3)
+      setTimeout(() => {
+        setCards(prevCards => {
+          const newCardsCopy = [...prevCards]
+          return newCardsCopy.map(c => c.matched ? c : { ...c, flipped: false })
+        })
+        setHintTimeLeft(null)
+      }, 3000)
+    } else {
+      // If super hint, check for level completion immediately?
+      // The useEffect hook will handle level completion based on 'cards' state change.
+    }
+  }
+}
+
+const gridCols = Math.ceil(Math.sqrt(cards.length))
+
+const handleRetryLevel = () => {
+  setShowTimedOut(false)
+  setIsPaused(false)
+  setTimeLeft(initialTime)
+  setFlippedIndices([])
+  setStreak(0)
+  setShowPreview(true)
+  setShowPreview(true)
+  setPreviewTimeLeft(4)
+
+  // Regenerate cards and start with them flipped for preview
+  const icons = currentTheme.icons
+  const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
+  const cardPairs = [...selectedIcons, ...selectedIcons]
+    .sort(() => Math.random() - 0.5)
+    .map((value, i) => ({
+      id: i,
+      value,
+      matched: false,
+      flipped: true, // Start with cards flipped for preview
+    }))
+  setCards(cardPairs)
+}
+
+// Fire Animation Style (Injected)
+const fireAnimation = isFireMode ? (
+  <style jsx global>{`
       @keyframes fireMove {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -1179,12 +1185,12 @@ function GameScreen({
         animation: fireMove 15s ease infinite;
       }
     `}</style>
-  ) : null
+) : null
 
-  return (
-    <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `bg-gradient-to-b ${currentTheme.bgGradient} mobile-full-screen`}`}>
-      {fireAnimation}
-      <style jsx global>{`
+return (
+  <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `bg-gradient-to-b ${currentTheme.bgGradient} mobile-full-screen`}`}>
+    {fireAnimation}
+    <style jsx global>{`
         /* Special Override specifically for mobile full bleed */
         @media (max-width: 768px) {
           .mobile-full-screen {
@@ -1192,323 +1198,339 @@ function GameScreen({
           }
         }
       `}</style>
-      <div className={`w-full h-full md:h-auto md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 flex flex-col ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
-        {showXpPopup && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
-            +{xpPopupAmount} XP!
+    <div className={`w-full h-full md:h-auto md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 flex flex-col ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
+      {showXpPopup && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
+          +{xpPopupAmount} XP!
+        </div>
+      )}
+      {showPreview && (
+        <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
+          <div className="text-center">
+            <h2 className="text-5xl font-black text-white/50 mb-2 tracking-widest uppercase drop-shadow-lg opacity-80">MEMORIZE</h2>
+            <div className="text-9xl font-black text-[#facc15] animate-pulse drop-shadow-2xl opacity-90">{previewTimeLeft}</div>
           </div>
-        )}
-        {showPreview && (
-          <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
-            <div className="text-center">
-              <h2 className="text-5xl font-black text-white/50 mb-2 tracking-widest uppercase drop-shadow-lg opacity-80">MEMORIZE</h2>
-              <div className="text-9xl font-black text-[#facc15] animate-pulse drop-shadow-2xl opacity-90">{previewTimeLeft}</div>
-            </div>
-            <div className="absolute bottom-12 text-white/90 font-bold text-sm uppercase tracking-widest animate-pulse">
-              Cards will flip soon...
-            </div>
+          <div className="absolute bottom-12 text-white/90 font-bold text-sm uppercase tracking-widest animate-pulse">
+            Cards will flip soon...
           </div>
-        )}
+        </div>
+      )}
 
 
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setShowEndGame(true)}
+          className={`font-bold text-xs px-4 py-2 rounded-xl shadow-md transition-all hover:scale-105 flex items-center gap-1.5 ${isFireMode
+            ? "bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white"
+            : "bg-gradient-to-r from-[#64748b] to-[#475569] hover:from-[#475569] hover:to-[#334155] text-white"}`}
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          END GAME
+        </button>
+
+        {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
+        {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
+        {isPaused && (
           <button
-            onClick={() => setShowEndGame(true)}
-            className={`font-bold text-xs px-4 py-2 rounded-xl shadow-md transition-all hover:scale-105 flex items-center gap-1.5 ${isFireMode
-              ? "bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white"
-              : "bg-gradient-to-r from-[#64748b] to-[#475569] hover:from-[#475569] hover:to-[#334155] text-white"}`}
+            onClick={() => {
+              setCheatInputValue("")
+              setShowCheatInput(true)
+            }}
+            className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full backdrop-blur-sm transition-all animate-pulse"
           >
-            <LogOut className="h-3.5 w-3.5" />
-            END GAME
+            <Target className="h-4 w-4" />
           </button>
+        )}
 
-          {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
-          {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
-          {isPaused && (
-            <button
-              onClick={() => {
-                setCheatInputValue("")
-                setShowCheatInput(true)
-              }}
-              className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full backdrop-blur-sm transition-all animate-pulse"
-            >
-              <Target className="h-4 w-4" />
-            </button>
-          )}
-
-          <div className="flex items-center gap-2">
-            <div className={`${isFireMode ? "bg-gradient-to-r from-red-500 to-yellow-500" : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"} text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap`}>
-              {xp} XP
-            </div>
-            <button
-              onClick={() => setShowStore(true)}
-              className={`${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]"} text-white rounded-xl p-2 shadow-md transition-all hover:scale-110`}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+        <div className="flex items-center gap-2">
+          <div className={`${isFireMode ? "bg-gradient-to-r from-red-500 to-yellow-500" : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"} text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap`}>
+            {xp} XP
           </div>
+          <button
+            onClick={() => setShowStore(true)}
+            className={`${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]"} text-white rounded-xl p-2 shadow-md transition-all hover:scale-110`}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
         </div>
+      </div>
 
-        {/* XP STORE MODAL */}
-        {showStore && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-2xl flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.3s_ease-out]">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-[#1e293b] text-xl font-black">GET MORE XP</h3>
-                <button onClick={() => setShowStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
-                  <LogOut className="h-4 w-4 text-slate-500" />
-                </button>
-              </div>
+      {/* XP STORE MODAL */}
+      {showStore && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-2xl flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.3s_ease-out]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[#1e293b] text-xl font-black">GET MORE XP</h3>
+              <button onClick={() => setShowStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
+                <LogOut className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
 
-              <div className="space-y-3">
-                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-xl border border-orange-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-orange-600 text-lg">500 XP</div>
-                    <div className="text-xs text-orange-500 font-bold">Starter Pack</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(10)} className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">10 GHS</button>
+            <div className="space-y-3">
+              {/* 5 GHS */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+                <div>
+                  <div className="font-black text-slate-700 text-lg">250 XP</div>
+                  <div className="text-xs text-slate-500 font-bold">Tiny Boost</div>
                 </div>
+                <button onClick={() => handlePaystackPayment(5)} className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">5 GHS</button>
+              </div>
 
-                <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 rounded-xl border border-indigo-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-indigo-600 text-lg">2500 XP</div>
-                    <div className="text-xs text-indigo-500 font-bold">Best Value</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(40)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer">40 GHS</button>
+              {/* 10 GHS */}
+              <div className="bg-orange-50 p-3 rounded-xl border border-orange-200 flex justify-between items-center">
+                <div>
+                  <div className="font-black text-orange-600 text-lg">500 XP</div>
+                  <div className="text-xs text-orange-500 font-bold">Starter Pack</div>
                 </div>
+                <button onClick={() => handlePaystackPayment(10)} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">10 GHS</button>
               </div>
 
-              <div className="mt-6">
-                <p className="text-center text-xs text-slate-500 font-semibold mb-3">SECURE CHECKOUT WITH</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handlePaystackPayment(10)}
-                    className="bg-[#ffcc00] hover:bg-[#ffdb4d] text-[#1e293b] font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
-                    <span>MTN MoMo</span>
-                  </button>
-                  <button
-                    onClick={() => handlePaystackPayment(10)}
-                    startIcon={null}
-                    className="bg-[#00c3f5] hover:bg-[#33cff7] text-white font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
-                    <span>Paystack</span>
-                  </button>
+              {/* 20 GHS */}
+              <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex justify-between items-center">
+                <div>
+                  <div className="font-black text-blue-600 text-lg">1200 XP</div>
+                  <div className="text-xs text-blue-500 font-bold">Great Value</div>
                 </div>
+                <button onClick={() => handlePaystackPayment(20)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">20 GHS</button>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* CHEAT INPUT MODAL */}
-        {showCheatInput && (
-          <CheatInputModal
-            onClose={() => setShowCheatInput(false)}
-            onActivate={(code) => activateCheat(code)}
-          />
-        )}
-
-        {/* RESET CONFIRMATION MODAL */}
-        {showResetConfirm && (
-          <ResetConfirmModal
-            onConfirm={handleResetConfirm}
-            onCancel={() => setShowResetConfirm(false)}
-          />
-        )}
-
-        {showEndGame && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
-              <h3 className="text-[#1e293b] text-2xl font-black mb-4 text-center">End Current Game?</h3>
-              <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Your progress will be lost</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowEndGame(false)}
-                  className="flex-1 bg-gradient-to-r from-[#cbd5e1] to-[#94a3b8] hover:from-[#94a3b8] hover:to-[#64748b] text-white font-black text-lg py-3 rounded-xl transition-all"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEndGame(false)
-                    // Instead of reloading, navigate to menu
-                    onBack()
-                    // If onGameOver is provided, call it as well
-                    onGameOver && onGameOver()
-                  }}
-                  className="flex-1 bg-gradient-to-r from-[#ef4444] to-[#dc2626] hover:from-[#dc2626] hover:to-[#b91c1c] text-white font-black text-lg py-3 rounded-xl transition-all"
-                >
-                  END GAME
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showTimedOut && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
-              <div className="flex justify-center mb-4">
-                <div className="bg-red-100 p-3 rounded-full">
-                  <Clock className="h-10 w-10 text-red-600" />
+              {/* 30 GHS */}
+              <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex justify-between items-center">
+                <div>
+                  <div className="font-black text-purple-600 text-lg">1800 XP</div>
+                  <div className="text-xs text-purple-500 font-bold">Pro Pack</div>
                 </div>
+                <button onClick={() => handlePaystackPayment(30)} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">30 GHS</button>
               </div>
-              <h3 className="text-[#1e293b] text-2xl font-black mb-2 text-center">Time's Up!</h3>
-              <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Keep practicing to improve your speed</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleRetryLevel}
-                  className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-lg py-3 rounded-xl shadow-xl h-auto transition-all hover:scale-105"
-                >
-                  TRY AGAIN
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTimedOut(false)
-                    onBack()
-                  }}
-                  className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all hover:scale-105"
-                >
-                  QUIT
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* LEVEL COMPLETE MODAL */}
-        {levelCompleted && !showXpPopup && (
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
-              <div className="flex justify-center mb-4">
-                <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
-                  <Trophy className="h-12 w-12 text-emerald-600" />
+              {/* 40 GHS */}
+              <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-3 rounded-xl border border-indigo-200 flex justify-between items-center shadow-md transform scale-105">
+                <div>
+                  <div className="font-black text-indigo-600 text-lg">2500 XP</div>
+                  <div className="text-xs text-indigo-500 font-bold">BEST DEAL</div>
                 </div>
-              </div>
-              <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
-              <p className="text-slate-600 text-base font-bold mb-6 text-center">
-                Awesome work! Ready for the next challenge?
-              </p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onLevelUp(level + 1)
-                  }}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
-                >
-                  NEXT LEVEL →
-                </button>
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onBack()
-                  }}
-                  className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
-                >
-                  Back to Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`${isFireMode ? "bg-gradient-to-br from-red-500 to-orange-600" : "bg-gradient-to-br from-[#3b82f6] to-[#2563eb]"} rounded-lg p-2 shadow-sm`}>
-                <Zap className="h-5 w-5 text-white fill-white" />
-              </div>
-              <div className="flex flex-col">
-                <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">STREAK</div>
-                <div className="text-[#1e293b] text-2xl font-black leading-none">{streak}</div>
+                <button onClick={() => handlePaystackPayment(40)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:scale-110 active:scale-95 transition-all text-white">40 GHS</button>
               </div>
             </div>
 
-            <div className="h-8 w-px bg-slate-200" />
-
-            {/* TIMER MOVED HERE */}
-            <div className="flex flex-col items-center min-w-[4rem]">
-              <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-0.5">TIME</div>
-              <div className={`text-xl font-black ${timeLeft < 10 ? "text-red-500 animate-pulse" : isFireMode ? "text-orange-600 drop-shadow-sm" : "text-[#1e293b]"}`}>
-                {Math.floor(timeLeft / 60)}:{Math.floor(timeLeft % 60).toString().padStart(2, "0")}
-              </div>
-            </div>
-
-            <div className="h-8 w-px bg-slate-200" />
-
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end">
-                <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">LEVEL</div>
-                <div className="text-[#64748b] text-[10px] font-semibold">XP Boost at {level + 1}</div>
-              </div>
-              <div className={`${isFireMode ? "bg-gradient-to-br from-red-600 to-orange-600 animate-pulse border border-yellow-400" : "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed]"} rounded-lg p-2 shadow-sm min-w-[2.5rem] flex items-center justify-center`}>
-                <div className="text-white text-2xl font-black">{level}</div>
-              </div>
+            <div className="mt-4 text-center">
+              <p className="text-[10px] text-slate-400 font-medium">SECURE PAYMENTS BY PAYSTACK & MTN MOMO</p>
             </div>
           </div>
         </div>
+      )}
 
-        <CardGrid
-          cards={cards}
-          onCardClick={handleCardClick}
-          isPaused={isPaused}
-          hintActive={hintTimeLeft !== null}
-          gridSize={gridCols}
+      {/* CHEAT INPUT MODAL */}
+      {showCheatInput && (
+        <CheatInputModal
+          onClose={() => setShowCheatInput(false)}
+          onActivate={(code) => activateCheat(code)}
         />
+      )}
 
-        <div className="flex gap-2 mb-4">
-          {/* Normal Hint */}
-          <button
-            onClick={() => handleHint(10, 1)}
-            disabled={xp < 10 || hintTimeLeft !== null || isPaused}
-            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]"} disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            {hintTimeLeft !== null ? `VISIBLE (${hintTimeLeft}s)` : "HINT (10 XP)"}
-          </button>
+      {/* RESET CONFIRMATION MODAL */}
+      {showResetConfirm && (
+        <ResetConfirmModal
+          onConfirm={handleResetConfirm}
+          onCancel={() => setShowResetConfirm(false)}
+        />
+      )}
 
-          {/* Super Hint */}
-          <button
-            onClick={() => handleHint(50, 2)}
-            disabled={xp < 50 || hintTimeLeft !== null || isPaused}
-            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-yellow-400" : "bg-gradient-to-r from-[#ec4899] to-[#db2777] hover:from-[#db2777] hover:to-[#be185d] border border-pink-300"} disabled:border-none disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
-          >
-            <Zap className="h-3.5 w-3.5 fill-white" />
-            SUPER (50 XP)
-          </button>
+      {showEndGame && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
+            <h3 className="text-[#1e293b] text-2xl font-black mb-4 text-center">End Current Game?</h3>
+            <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Your progress will be lost</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEndGame(false)}
+                className="flex-1 bg-gradient-to-r from-[#cbd5e1] to-[#94a3b8] hover:from-[#94a3b8] hover:to-[#64748b] text-white font-black text-lg py-3 rounded-xl transition-all"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => {
+                  setShowEndGame(false)
+                  // Instead of reloading, navigate to menu
+                  onBack()
+                  // If onGameOver is provided, call it as well
+                  onGameOver && onGameOver()
+                }}
+                className="flex-1 bg-gradient-to-r from-[#ef4444] to-[#dc2626] hover:from-[#dc2626] hover:to-[#b91c1c] text-white font-black text-lg py-3 rounded-xl transition-all"
+              >
+                END GAME
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="flex rounded-xl overflow-hidden shadow-md mb-2">
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            className={`flex-1 font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
-              ? isFireMode
-                ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
-                : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
-              : isFireMode
-                ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
-                : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
-              }`}
-          >
-            {!isPaused ? (
-              <>
-                <Pause className="h-6 w-6 fill-white" />
-                PAUSE
-              </>
-            ) : (
-              <>
-                <Play className="h-6 w-6 fill-white" />
-                PLAY
-              </>
-            )}
-          </button>
+      {showTimedOut && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
+            <div className="flex justify-center mb-4">
+              <div className="bg-red-100 p-3 rounded-full">
+                <Clock className="h-10 w-10 text-red-600" />
+              </div>
+            </div>
+            <h3 className="text-[#1e293b] text-2xl font-black mb-2 text-center">Time's Up!</h3>
+            <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Keep practicing to improve your speed</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRetryLevel}
+                className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-lg py-3 rounded-xl shadow-xl h-auto transition-all hover:scale-105"
+              >
+                TRY AGAIN
+              </button>
+              <button
+                onClick={() => {
+                  setShowTimedOut(false)
+                  onBack()
+                }}
+                className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all hover:scale-105"
+              >
+                QUIT
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="mt-12 pt-8">
-          <p className="text-[#64748b] text-sm font-semibold text-center">Developer Rebry Creatives</p>
+      {/* LEVEL COMPLETE MODAL */}
+      {levelCompleted && !showXpPopup && (
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
+            <div className="flex justify-center mb-4">
+              <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
+                <Trophy className="h-12 w-12 text-emerald-600" />
+              </div>
+            </div>
+            <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
+            <p className="text-slate-600 text-base font-bold mb-6 text-center">
+              Awesome work! Ready for the next challenge?
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setLevelCompleted(false)
+                  onLevelUp(level + 1)
+                }}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
+              >
+                NEXT LEVEL →
+              </button>
+              <button
+                onClick={() => {
+                  setLevelCompleted(false)
+                  onBack()
+                }}
+                className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
+              >
+                Back to Menu
+              </button>
+            </div>
+          </div>
         </div>
-      </div >
+      )}
+
+      <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`${isFireMode ? "bg-gradient-to-br from-red-500 to-orange-600" : "bg-gradient-to-br from-[#3b82f6] to-[#2563eb]"} rounded-lg p-2 shadow-sm`}>
+              <Zap className="h-5 w-5 text-white fill-white" />
+            </div>
+            <div className="flex flex-col">
+              <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">STREAK</div>
+              <div className="text-[#1e293b] text-2xl font-black leading-none">{streak}</div>
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-slate-200" />
+
+          {/* TIMER MOVED HERE */}
+          <div className="flex flex-col items-center min-w-[4rem]">
+            <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-0.5">TIME</div>
+            <div className={`text-xl font-black ${timeLeft < 10 ? "text-red-500 animate-pulse" : isFireMode ? "text-orange-600 drop-shadow-sm" : "text-[#1e293b]"}`}>
+              {Math.floor(timeLeft / 60)}:{Math.floor(timeLeft % 60).toString().padStart(2, "0")}
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-slate-200" />
+
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
+              <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">LEVEL</div>
+              <div className="text-[#64748b] text-[10px] font-semibold">XP Boost at {level + 1}</div>
+            </div>
+            <div className={`${isFireMode ? "bg-gradient-to-br from-red-600 to-orange-600 animate-pulse border border-yellow-400" : "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed]"} rounded-lg p-2 shadow-sm min-w-[2.5rem] flex items-center justify-center`}>
+              <div className="text-white text-2xl font-black">{level}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <CardGrid
+        cards={cards}
+        onCardClick={handleCardClick}
+        isPaused={isPaused}
+        hintActive={hintTimeLeft !== null}
+        gridSize={gridCols}
+      />
+
+      <div className="flex gap-2 mb-4">
+        {/* Normal Hint */}
+        <button
+          onClick={() => handleHint(10, 1)}
+          disabled={xp < 10 || hintTimeLeft !== null || isPaused}
+          className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]"} disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
+        >
+          <Zap className="h-3.5 w-3.5" />
+          {hintTimeLeft !== null ? `VISIBLE (${hintTimeLeft}s)` : "HINT (10 XP)"}
+        </button>
+
+        {/* Super Hint */}
+        <button
+          onClick={() => handleHint(50, 2)}
+          disabled={xp < 50 || hintTimeLeft !== null || isPaused}
+          className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-yellow-400" : "bg-gradient-to-r from-[#ec4899] to-[#db2777] hover:from-[#db2777] hover:to-[#be185d] border border-pink-300"} disabled:border-none disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
+        >
+          <Zap className="h-3.5 w-3.5 fill-white" />
+          SUPER (50 XP)
+        </button>
+      </div>
+
+      <div className="flex rounded-xl overflow-hidden shadow-md mb-2">
+        <button
+          onClick={() => setIsPaused(!isPaused)}
+          className={`flex-1 font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
+            ? isFireMode
+              ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
+              : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
+            : isFireMode
+              ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
+              : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
+            }`}
+        >
+          {!isPaused ? (
+            <>
+              <Pause className="h-6 w-6 fill-white" />
+              PAUSE
+            </>
+          ) : (
+            <>
+              <Play className="h-6 w-6 fill-white" />
+              PLAY
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="mt-12 pt-8">
+        <p className="text-[#64748b] text-sm font-semibold text-center">Developer Rebry Creatives</p>
+      </div>
     </div >
-  )
+  </div >
+)
 }
 
 function GameOverScreen({ level, onRetry, onMenu }: { level: number; onRetry: () => void; onMenu: () => void }) {
