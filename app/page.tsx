@@ -692,22 +692,13 @@ function MenuScreen({
         <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
       </div>
 
-      <div className="w-full max-w-xs bg-slate-100 rounded-xl p-2 flex justify-between items-center px-4">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
-          <span className="text-slate-700 font-black text-lg">{xp} XP</span>
-        </div>
-        <button onClick={onOpenStore} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-all">
-          GET MORE
-        </button>
-      </div>
-
       <div className="w-full max-w-xs">
         <ModeCarousel
           onQuickPlay={onQuickPlay}
           onContinue={onContinue}
           bestLevel={bestLevel}
           xp={xp}
+          onOpenStore={onOpenStore}
         />
       </div>
 
@@ -1681,12 +1672,14 @@ function ModeCarousel({
   onQuickPlay,
   onContinue,
   bestLevel,
-  xp
+  xp,
+  onOpenStore,
 }: {
   onQuickPlay: () => void,
   onContinue: () => void,
   bestLevel: number,
-  xp: number
+  xp: number,
+  onOpenStore: () => void
 }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true, // Enable infinite loop
@@ -1723,8 +1716,21 @@ function ModeCarousel({
   }, [emblaApi])
 
   return (
-    <div className="relative">
-      <div className="overflow-hidden rounded-3xl shadow-2xl" ref={emblaRef}>
+    <div className="relative rounded-3xl shadow-2xl overflow-hidden bg-white">
+      {/* FIXED XP BAR OVERLAY */}
+      <div className="absolute top-0 left-0 right-0 z-20 p-2">
+        <div className="bg-white/90 backdrop-blur-md rounded-xl p-1.5 flex justify-between items-center px-3 border border-indigo-50 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
+            <span className="text-slate-800 font-black text-sm">{xp} XP</span>
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); onOpenStore() }} className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm active:scale-95 transition-all">
+            GET MORE
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex touch-pan-y">
           {/* SLIDE 1: QUICK PLAY */}
           <div className="flex-[0_0_100%] min-w-0 relative">
