@@ -405,7 +405,6 @@ export default function SpeedryConquest() {
             bestLevel={bestLevel}
             xp={xp}
             onOpenStore={() => setShowGlobalStore(true)}
-            onOpenStore={() => setShowGlobalStore(true)}
           />
         )}
 
