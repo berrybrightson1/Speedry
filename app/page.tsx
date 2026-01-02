@@ -405,10 +405,7 @@ export default function SpeedryConquest() {
             bestLevel={bestLevel}
             xp={xp}
             onOpenStore={() => setShowGlobalStore(true)}
-            onOpenHelp={() => {
-              setHelpTab("guide")
-              setShowHelp(true)
-            }}
+            onOpenStore={() => setShowGlobalStore(true)}
           />
         )}
 
@@ -483,6 +480,28 @@ export default function SpeedryConquest() {
         activeTab={helpTab}
         onTabChange={setHelpTab}
       />
+
+      {/* FLOATING HELP BUTTON */}
+      {!showHelp && !showGlobalStore && (
+        <button
+          onClick={() => {
+            setHelpTab("guide")
+            setShowHelp(true)
+          }}
+          className="fixed top-6 right-6 z-50 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border-2 border-slate-100 text-[#8b5cf6] hover:scale-110 active:scale-95 transition-all animate-[float_4s_ease-in-out_infinite]"
+          aria-label="Help"
+        >
+          <HelpCircle className="w-6 h-6" />
+        </button>
+      )}
+
+      <style jsx global>{`
+        @keyframes float {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-10px) rotate(5deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+      `}</style>
     </div>
   )
 }
@@ -616,7 +635,6 @@ function MenuScreen({
   bestLevel,
   xp,
   onOpenStore,
-  onOpenHelp,
 }: {
   onQuickPlay: () => void
   onContinue: () => void
@@ -625,25 +643,17 @@ function MenuScreen({
   onCreateMatch: () => void
   onJoinMatch: () => void
   onOpenStore: () => void
-  onOpenHelp: () => void
   bestLevel: number
   xp: number
 }) {
   return (
     <div className="flex flex-col items-center justify-center space-y-8 py-12">
-      <div className="text-center relative">
+      <div className="text-center">
         <h1 className="text-3xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
         <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
-
-        <button
-          onClick={onOpenHelp}
-          className="absolute -right-8 top-1/2 -translate-y-1/2 p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-[#8b5cf6] transition-colors"
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
       </div>
 
       <div className="w-full max-w-xs">
@@ -2570,7 +2580,8 @@ function HelpModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6">
+
           {activeTab === "guide" && (
             <div className="space-y-6">
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
