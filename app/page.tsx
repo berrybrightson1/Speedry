@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 // Build fix trigger
 
 import React, { useState, useEffect, useCallback } from "react"
@@ -720,7 +720,7 @@ function GameScreen({
         onWarp(20)
         localStorage.setItem("speedry_last_warp", now.toString())
         localStorage.setItem("speedry_warp_attempts", "0") // Reset attempts
-        toast.success("🔥 FIRE MODE ACTIVATED: Level 20 & +1000 XP!", { duration: 3000 })
+        toast.success("ðŸ”¥ FIRE MODE ACTIVATED: Level 20 & +1000 XP!", { duration: 3000 })
       } else {
         // COOLDOWN ACTIVE
         const newAttempts = attempts + 1
@@ -732,7 +732,7 @@ function GameScreen({
           setXpPopupAmount(200)
           setShowXpPopup(true)
           setTimeout(() => setShowXpPopup(false), 1500)
-          toast("🔥 Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: '🔥' })
+          toast("ðŸ”¥ Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: 'ðŸ”¥' })
         } else {
           toast.error(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
         }
@@ -755,7 +755,7 @@ function GameScreen({
       localStorage.removeItem("speedry_last_reset")
       localStorage.removeItem("speedry_xp_store_seen")
 
-      toast.success("🛡️ MASTER RESET EXECUTED: SYSTEM WIPED", {
+      toast.success("ðŸ›¡ï¸ MASTER RESET EXECUTED: SYSTEM WIPED", {
         style: { background: '#1e293b', color: '#10b981', fontWeight: 'bold' }
       })
     }
@@ -778,7 +778,7 @@ function GameScreen({
       // Set Reset Cooldown
       localStorage.setItem("speedry_last_reset", now.toString())
 
-      toast.success("♻️ GAME RESET SUCCESSFUL! Fire Mode Cooldown Cleared.")
+      toast.success("â™»ï¸ GAME RESET SUCCESSFUL! Fire Mode Cooldown Cleared.")
     } else {
       toast.error("Reset on Cooldown! (Once per 24h)")
     }
@@ -1651,7 +1651,7 @@ function LobbyScreen({
                   {id === playerId ? "You" : player.name || `Player ${index + 1}`}
                 </p>
                 <p className="text-sm text-[#64748b] font-semibold">
-                  {player.lives} Lives • Level {player.currentLevel}
+                  {player.lives} Lives â€¢ Level {player.currentLevel}
                 </p>
               </div>
             </div>
@@ -2246,176 +2246,71 @@ function JoinMatchScreen({
   )
 }
 
- 
- f u n c t i o n   C h e a t I n p u t M o d a l ( {   o n C l o s e ,   o n A c t i v a t e    } :   {   o n C l o s e :   ( )   = >   v o i d ;   o n A c t i v a t e :   ( c o d e :   s t r i n g )   = >   v o i d    } )   { 
- 
-         c o n s t   [ i n p u t ,   s e t I n p u t ]   =   u s e S t a t e ( " " ) 
- 
-         c o n s t   i n p u t R e f   =   R e a c t . u s e R e f < H T M L I n p u t E l e m e n t > ( n u l l ) 
- 
- 
- 
-         u s e E f f e c t ( ( )   = >   { 
- 
-                 / /   F o c u s   i n p u t   o n   m o u n t 
- 
-                 i f   ( i n p u t R e f . c u r r e n t )   i n p u t R e f . c u r r e n t . f o c u s ( ) 
- 
-         
-  } ,   [ ] ) 
- 
- 
- 
-         r e t u r n   ( 
- 
-                 < d i v   c l a s s N a m e = " a b s o l u t e   i n s e t - 0   b g - b l a c k / 8 0   b a c k d r o p - b l u r - s m   z - [ 1 0 0 ]   f l e x   i t e m s - c e n t e r   j u s t i f y - c e n t e r   p - 4   a n i m a t e - i n   f a d e - i n   d u r a t i o n - 2 0 0 " > 
- 
-                         < d i v   c l a s s N a m e = " b g - s l a t e - 9 0 0   b o r d e r   b o r d e r - s l a t e - 7 0 0   r o u n d e d - 2 x l   p - 6   w - f u l l   m a x - w - x s   s h a d o w - 2 x l " > 
- 
-                                 < h 3   c l a s s N a m e = " t e x t - e m e r a l d - 4 0 0   f o n t - m o n o   f o n t - b o l d   t e x t - c e n t e r   m b - 4   t r a c k i n g - w i d e s t   t e x t - s m " > 
- 
-                     / /   T E R M I N A L   A C C E S S 
- 
-                                 < / h 3 > 
- 
- 
- 
-                                 < i n p u t 
- 
-                                         r e f = { i n p u t R e f  } 
- 
-                                         t y p e = " t e x t " 
- 
-                                         v a l u e = { i n p u t  } 
- 
-                                         o n C h a n g e = { ( e )   = >   s e t I n p u t ( e . t a r g e t . v a l u e . t o U p p e r C a s e ( ) )  } 
- 
-                                         p l a c e h o l d e r = " E N T E R   C O D E . . . " 
- 
-                                         c l a s s N a m e = " w - f u l l   b g - s l a t e - 8 0 0   t e x t - w h i t e   f o n t - m o n o   t e x t - c e n t e r   p - 3   r o u n d e d - l g   b o r d e r   b o r d e r - s l a t e - 6 0 0   f o c u s : b o r d e r - e m e r a l d - 5 0 0   f o c u s : o u t l i n e - n o n e   m b - 4   u p p e r c a s e   t r a c k i n g - w i d e s t " 
- 
-                                         a u t o F o c u s 
- 
-                                 / > 
- 
- 
- 
-                                 < d i v   c l a s s N a m e = " g r i d   g r i d - c o l s - 2   g a p - 3 " > 
- 
-                                         < b u t t o n 
- 
-                                                 o n C l i c k = { o n C l o s e  } 
- 
-                                                 c l a s s N a m e = " b g - s l a t e - 7 0 0   h o v e r : b g - s l a t e - 6 0 0   t e x t - w h i t e   f o n t - m o n o   f o n t - b o l d   p y - 2   r o u n d e d - l g   t e x t - x s " 
- 
-                                         > 
- 
-                                                 C A N C E L 
- 
-                                         < / b u t t o n > 
- 
-                                         < b u t t o n 
- 
-                                                 o n C l i c k = { ( )   = >   { 
- 
-                                                         i f   ( ! i n p u t . t r i m ( ) )   r e t u r n 
- 
-                                                         o n A c t i v a t e ( i n p u t . t r i m ( ) ) 
- 
-                                                         o n C l o s e ( ) 
- 
-                                                 
-  } 
-  } 
- 
-                                                 c l a s s N a m e = " b g - e m e r a l d - 6 0 0   h o v e r : b g - e m e r a l d - 5 0 0   t e x t - w h i t e   f o n t - m o n o   f o n t - b o l d   p y - 2   r o u n d e d - l g   t e x t - x s   s h a d o w - [ 0 _ 0 _ 1 0 p x _ r g b a ( 1 6 , 1 8 5 , 1 2 9 , 0 . 4 ) ] " 
- 
-                                         > 
- 
-                                                 E X E C U T E 
- 
-                                         < / b u t t o n > 
- 
-                                 < / d i v > 
- 
-                         < / d i v > 
- 
-                 < / d i v > 
- 
-         ) 
- 
- 
-} 
- 
- 
- 
- f u n c t i o n   R e s e t C o n f i r m M o d a l ( {   o n C o n f i r m ,   o n C a n c e l    } :   {   o n C o n f i r m :   ( )   = >   v o i d ;   o n C a n c e l :   ( )   = >   v o i d    } )   { 
- 
-         r e t u r n   ( 
- 
-                 < d i v   c l a s s N a m e = " a b s o l u t e   i n s e t - 0   b g - r e d - 9 5 0 / 8 0   b a c k d r o p - b l u r - s m   z - [ 1 0 0 ]   f l e x   i t e m s - c e n t e r   j u s t i f y - c e n t e r   p - 4   a n i m a t e - i n   f a d e - i n   d u r a t i o n - 2 0 0 " > 
- 
-                         < d i v   c l a s s N a m e = " b g - w h i t e   r o u n d e d - 2 x l   p - 6   w - f u l l   m a x - w - x s   s h a d o w - 2 x l   b o r d e r - 4   b o r d e r - r e d - 5 0 0 " > 
- 
-                                 < d i v   c l a s s N a m e = " f l e x   j u s t i f y - c e n t e r   m b - 4 " > 
- 
-                                         < d i v   c l a s s N a m e = " b g - r e d - 1 0 0   p - 3   r o u n d e d - f u l l   a n i m a t e - b o u n c e " > 
- 
-                                                 < A l e r t T r i a n g l e   c l a s s N a m e = " h - 8   w - 8   t e x t - r e d - 6 0 0 "   / > 
- 
-                                         < / d i v > 
- 
-                                 < / d i v > 
- 
- 
- 
-                                 < h 3   c l a s s N a m e = " t e x t - r e d - 6 0 0   f o n t - b l a c k   t e x t - 2 x l   t e x t - c e n t e r   m b - 2 " > W A R N I N G ! < / h 3 > 
- 
-                                 < p   c l a s s N a m e = " t e x t - s l a t e - 6 0 0   t e x t - c e n t e r   f o n t - b o l d   t e x t - s m   m b - 6   l e a d i n g - r e l a x e d " > 
- 
-                                         T h i s   w i l l   r e s e t   y o u r   L e v e l ,   X P ,   a n d   S t r e a k   t o   z e r o .   < b r   / > 
- 
-                                         < s p a n   c l a s s N a m e = " t e x t - r e d - 5 0 0   t e x t - x s " > ( B u t   i t   c l e a r s   F i r e   M o d e   c o o l d o w n ! ) < / s p a n > 
- 
-                                 < / p > 
- 
- 
- 
-                                 < d i v   c l a s s N a m e = " s p a c e - y - 3 " > 
- 
-                                         < b u t t o n 
- 
-                                                 o n C l i c k = { o n C o n f i r m  } 
- 
-                                                 c l a s s N a m e = " w - f u l l   b g - r e d - 6 0 0   h o v e r : b g - r e d - 7 0 0   t e x t - w h i t e   f o n t - b l a c k   p y - 4   r o u n d e d - x l   s h a d o w - l g   b o r d e r - b - 4   b o r d e r - r e d - 8 0 0   a c t i v e : b o r d e r - b - 0   a c t i v e : t r a n s l a t e - y - 1   t r a n s i t i o n - a l l " 
- 
-                                         > 
- 
-                                                 Y E S ,   R E S E T   E V E R Y T H I N G 
- 
-                                         < / b u t t o n > 
- 
-                                         < b u t t o n 
- 
-                                                 o n C l i c k = { o n C a n c e l  } 
- 
-                                                 c l a s s N a m e = " w - f u l l   b g - s l a t e - 2 0 0   h o v e r : b g - s l a t e - 3 0 0   t e x t - s l a t e - 7 0 0   f o n t - b o l d   p y - 3   r o u n d e d - x l " 
- 
-                                         > 
- 
-                                                 C A N C E L 
- 
-                                         < / b u t t o n > 
- 
-                                 < / d i v > 
- 
-                         < / d i v > 
- 
-                 < / d i v > 
- 
-         ) 
- 
- 
-} 
- 
- 
+function CheatInputModal({ onClose, onActivate }: { onClose: () => void; onActivate: (code: string) => void }) {
+    const [input, setInput] = useState("")
+    const inputRef = React.useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.focus()
+    }, [])
+
+    return (
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl">
+                <h3 className="text-emerald-400 font-mono font-bold text-center mb-4 tracking-widest text-sm">
+          // TERMINAL ACCESS
+                </h3>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE..."
+                    className="w-full bg-slate-800 text-white font-mono text-center p-3 rounded-lg border border-slate-600 focus:border-emerald-500 focus:outline-none mb-4 uppercase tracking-widest"
+                    autoFocus
+                />
+                <div className="grid grid-cols-2 gap-3">
+                    <button onClick={onClose} className="bg-slate-700 hover:bg-slate-600 text-white font-mono font-bold py-2 rounded-lg text-xs">CANCEL</button>
+                    <button
+                        onClick={() => {
+                            if (!input.trim()) return
+                            onActivate(input.trim())
+                            onClose()
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold py-2 rounded-lg text-xs shadow-[0_0_10px_rgba(16,185,129,0.4)]"
+                    >
+                        EXECUTE
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function ResetConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    return (
+        <div className="absolute inset-0 bg-red-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-2xl border-4 border-red-500">
+                <div className="flex justify-center mb-4">
+                    <div className="bg-red-100 p-3 rounded-full animate-bounce">
+                        <AlertTriangle className="h-8 w-8 text-red-600" />
+                    </div>
+                </div>
+                <h3 className="text-red-600 font-black text-2xl text-center mb-2">WARNING!</h3>
+                <p className="text-slate-600 text-center font-bold text-sm mb-6 leading-relaxed">
+                    This will reset your Level, XP, and Streak to zero. <br />
+                    <span className="text-red-500 text-xs">(But it clears Fire Mode cooldown!)</span>
+                </p>
+                <div className="space-y-3">
+                    <button
+                        onClick={onConfirm}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow-lg border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all"
+                    >
+                        YES, RESET EVERYTHING
+                    </button>
+                    <button onClick={onCancel} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    )
+}
