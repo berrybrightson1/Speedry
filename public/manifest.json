@@ -9,22 +9,12 @@
     "orientation": "portrait",
     "icons": [
         {
-            "src": "/icon-light-32x32.png",
-            "sizes": "32x32",
-            "type": "image/png"
-        },
-        {
-            "src": "/icon-dark-32x32.png",
-            "sizes": "32x32",
-            "type": "image/png"
-        },
-        {
-            "src": "/icon-dark-32x32.png",
+            "src": "/icon.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/icon-dark-32x32.png",
+            "src": "/icon.png",
             "sizes": "512x512",
             "type": "image/png"
         }

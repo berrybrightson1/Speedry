@@ -598,17 +598,18 @@ export default function SpeedryConquest() {
             onMenu={() => setScreen("menu")}
           />
         )}
-        {/* HELP BUTTON (Constrained to App Container) */}
+        {/* HELP BUTTON (Bubbling Around Screen) */}
         {!showHelp && !showGlobalStore && screen === "menu" && (
           <button
             onClick={() => {
               setHelpTab("guide")
               setShowHelp(true)
             }}
-            className="absolute top-6 right-6 z-40 bg-white/80 backdrop-blur-md p-2.5 rounded-full shadow-lg border border-white/50 text-[#8b5cf6] hover:scale-110 active:scale-95 transition-all"
+            className="fixed z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-2xl border-2 border-white/50 text-[#8b5cf6] hover:scale-125 hover:rotate-12 transition-all animate-[bubbleAround_20s_linear_infinite]"
+            style={{ willChange: 'top, left' }}
             aria-label="Help"
           >
-            <HelpCircle className="w-5 h-5" />
+            <HelpCircle className="w-6 h-6" />
           </button>
         )}
       </div>
@@ -647,6 +648,13 @@ export default function SpeedryConquest() {
           0% { transform: translateY(0px) rotate(0deg); }
           50% { transform: translateY(-10px) rotate(5deg); }
           100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes bubbleAround {
+          0% { top: 5%; left: 5%; transform: scale(1); }
+          25% { top: 5%; left: 85%; transform: scale(1.1) rotate(10deg); }
+          50% { top: 85%; left: 85%; transform: scale(1); }
+          75% { top: 85%; left: 5%; transform: scale(1.1) rotate(-10deg); }
+          100% { top: 5%; left: 5%; transform: scale(1); }
         }
       `}</style>
     </div>
@@ -830,11 +838,11 @@ function MenuScreen({
 
         {/* BRANDING */}
         <div className="text-center">
-          <h1 className="text-4xl font-black leading-none tracking-tight drop-shadow-sm">
+          <h1 className="text-6xl font-black leading-none tracking-tight drop-shadow-sm scale-y-110">
             <span className="text-[#1e293b]">SPEE</span>
             <span className="text-[#8b5cf6]">DRY</span>
           </h1>
-          <p className="text-[#1e293b]/80 text-sm font-black tracking-[0.2em] mt-1 ml-1">CONQUEST</p>
+          <p className="text-[#1e293b]/80 text-base font-black tracking-[0.3em] mt-2 ml-1">CONQUEST</p>
         </div>
       </div>
 
@@ -2925,32 +2933,32 @@ function AuthChoiceModal({
 }
 
 function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLogin: () => void, onLogout: () => void }) {
-  // Static state - Always expanded
+  // Condensed state - Smaller component
   return (
     <div className="relative group cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
-      <div className="bg-white/90 backdrop-blur-md shadow-xl border border-white/60 rounded-full flex items-center h-12 pl-1.5 pr-4 gap-3">
+      <div className="bg-white/80 backdrop-blur-sm shadow-md border border-white/40 rounded-full flex items-center h-8 pl-1 pr-3 gap-2">
 
-        {/* Icon Section */}
-        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-indigo-50 text-indigo-600"
+        {/* Icon Section - Smaller */}
+        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center shadow-sm ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-indigo-50 text-indigo-600"
           }`}>
           {user?.photoURL ? (
             <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" />
           ) : (
-            <User className="w-5 h-5" />
+            <User className="w-3.5 h-3.5" />
           )}
         </div>
 
-        {/* Text Section */}
+        {/* Text Section - Compact */}
         <div className="flex flex-col justify-center items-start whitespace-nowrap">
           {user ? (
             <>
-              <span className="text-[9px] font-bold text-slate-400 leading-none mb-0.5 uppercase tracking-wide">Sync Active</span>
-              <span className="text-sm font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
+              <span className="text-[7px] font-bold text-slate-400 leading-none mb-0.5 uppercase tracking-wide">Sync Active</span>
+              <span className="text-xs font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
             </>
           ) : (
             <button onClick={onLogin} className="text-left">
-              <span className="text-[9px] font-bold text-indigo-500 leading-none mb-0.5 uppercase tracking-wide">Cloud Save</span>
-              <span className="text-sm font-black text-slate-800 leading-none block">Tap to Sign In</span>
+              <span className="text-[7px] font-bold text-indigo-500 leading-none mb-0.5 uppercase tracking-wide">Cloud Save</span>
+              <span className="text-xs font-black text-slate-800 leading-none block">Tap to Sign In</span>
             </button>
           )}
         </div>
@@ -2959,10 +2967,10 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
         {user && (
           <button
             onClick={(e) => { e.stopPropagation(); onLogout() }}
-            className="ml-1 p-1.5 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
+            className="ml-0.5 p-1 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
             title="Logout"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3 h-3" />
           </button>
         )}
       </div>
