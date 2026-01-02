@@ -767,23 +767,24 @@ function MenuScreen({
   isSyncing: boolean
 }) {
   return (
+    <div className="relative w-full flex flex-col items-center justify-center space-y-8 py-12">
       <div className="absolute top-4 left-4 flex items-center gap-2">
         {user ? (
           <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 pr-3 rounded-full border border-white/50 shadow-sm animate-in fade-in slide-in-from-left-4">
-             {/* Avatar or Icon */}
-             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner">
-                {user.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" /> : <User className="w-4 h-4" />}
-             </div>
-             <div className="text-left">
-               <p className="text-[10px] font-bold text-slate-500 leading-none">SIGNED IN</p>
-               <p className="text-xs font-black text-slate-700 leading-none truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</p>
-             </div>
-             <button onClick={onLogout} className="ml-2 p-1 hover:bg-red-100 rounded-full group" title="Logout">
-               <LogOut className="w-3 h-3 text-slate-400 group-hover:text-red-500" />
-             </button>
+            {/* Avatar or Icon */}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner">
+              {user.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" /> : <User className="w-4 h-4" />}
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] font-bold text-slate-500 leading-none">SIGNED IN</p>
+              <p className="text-xs font-black text-slate-700 leading-none truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</p>
+            </div>
+            <button onClick={onLogout} className="ml-2 p-1 hover:bg-red-100 rounded-full group" title="Logout">
+              <LogOut className="w-3 h-3 text-slate-400 group-hover:text-red-500" />
+            </button>
           </div>
         ) : (
-          <button 
+          <button
             onClick={onLogin}
             className="flex items-center gap-2 bg-white p-2 pr-4 rounded-full shadow-md border border-slate-100 hover:scale-105 active:scale-95 transition-all group"
           >
@@ -1724,8 +1725,8 @@ function GameScreen({
         <div className="mt-12 pt-8">
           <p className="text-[#64748b] text-sm font-semibold text-center">Developer Rebry Creatives</p>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   )
 }
 
