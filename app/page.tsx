@@ -921,13 +921,14 @@ function GameScreen({
       setXpPopupAmount(totalXpEarned)
       setShowXpPopup(true)
 
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
         setShowXpPopup(false)
-        // Don't auto-advance to next level - just mark as complete
-        setLevelCompleted(true)
+        // Redundant setLevelCompleted(true) removed here to prevent race condition
       }, 1500)
+
+      return () => clearTimeout(timerId)
     }
-  }, [cards, levelCompleted])
+  }, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, xp])
 
   const handleCardClick = useCallback(
     (index: number) => {
