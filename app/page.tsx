@@ -102,13 +102,21 @@ export default function SpeedryConquest() {
   // Auth State
   const [user, setUser] = useState<FirebaseUser | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [showAuthChoice, setShowAuthChoice] = useState(false)
 
   // AUTH & SYNC INITIALIZATION
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser)
       if (currentUser) {
+        setShowAuthChoice(false)
         handleCloudSync(currentUser)
+      } else {
+        // Not logged in? Check if they accepted guest mode
+        const isGuest = localStorage.getItem("speedry_guest_mode")
+        if (!isGuest) {
+          setShowAuthChoice(true)
+        }
       }
     })
     return () => unsubscribe()
@@ -191,9 +199,15 @@ export default function SpeedryConquest() {
     try {
       await signInWithPopup(auth, googleProvider)
       // The onAuthStateChanged hook handles the rest
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login Failed", error)
-      toast.error("Login failed. Try again.")
+      // Show specific error to user (helps with domain authorization issues)
+      const errorMessage = error?.message || "Unknown error"
+      if (errorMessage.includes("unauthorized-domain")) {
+        toast.error("Domain Error: Add this URL to Firebase Console > Auth > Settings")
+      } else {
+        toast.error(`Login Failed: ${errorMessage.split(":")[0]}`)
+      }
     }
   }
 
@@ -201,10 +215,18 @@ export default function SpeedryConquest() {
     try {
       await signOut(auth)
       setUser(null)
+      localStorage.removeItem("speedry_guest_mode")
+      setShowAuthChoice(true) // Show choice again on logout
       toast.info("Logged out")
     } catch (error) {
       console.error("Logout Failed", error)
     }
+  }
+
+  const handleGuestMode = () => {
+    localStorage.setItem("speedry_guest_mode", "true")
+    setShowAuthChoice(false)
+    toast.info("Playing as Guest. Progress saved locally.", { icon: "⚠️" })
   } // guide, secrets, updates
 
   // PAYMENT HANDLER (LIFTED)
@@ -582,6 +604,14 @@ export default function SpeedryConquest() {
           isOpen={showGlobalStore}
           onClose={() => setShowGlobalStore(false)}
           onPurchase={handlePaystackPayment}
+        />
+      )}
+
+      {/* AUTH CHOICE MODAL (Mandatory Logic) */}
+      {!user && showAuthChoice && !isLoading && (
+        <AuthChoiceModal
+          onLogin={handleLogin}
+          onGuest={handleGuestMode}
         />
       )}
 
@@ -2828,6 +2858,62 @@ function HelpModal({
         {/* Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
           <p className="text-xs text-slate-400 font-semibold">Speedry Conquest v2.1</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthChoiceModal({
+  onLogin,
+  onGuest
+}: {
+  onLogin: () => void
+  onGuest: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-sm text-center border-4 border-slate-100 relative overflow-hidden animate-in zoom-in-95 duration-300">
+
+        {/* Background Decoration */}
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full blur-2xl"></div>
+        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-pink-50 rounded-full blur-2xl"></div>
+
+        <div className="relative z-10">
+          <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <User className="w-10 h-10 text-indigo-600" />
+            <div className="absolute top-1 right-1 bg-green-400 w-4 h-4 rounded-full border-2 border-white animate-ping"></div>
+          </div>
+
+          <h2 className="text-2xl font-black text-slate-800 mb-2">SAVE YOUR PROGRESS</h2>
+          <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8">
+            Sign in to sync your <span className="text-indigo-600 font-bold">XP, Levels & Purchases</span> to the cloud. Never lose your data!
+          </p>
+
+          <div className="space-y-4">
+            <button
+              onClick={onLogin}
+              className="w-full bg-white border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-black py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-sm hover:shadow-md group"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+              <span>SIGN IN WITH GOOGLE</span>
+            </button>
+
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-slate-200"></div>
+              <span className="flex-shrink-0 mx-4 text-slate-300 text-xs font-bold uppercase">Or Play Risky</span>
+              <div className="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <button
+              onClick={onGuest}
+              className="w-full text-slate-400 hover:text-red-500 text-xs font-bold py-2 transition-colors flex items-center justify-center gap-1 group"
+            >
+              <AlertTriangle className="w-3 h-3 group-hover:animate-pulse" />
+              PLAY AS GUEST (DATA MAY BE LOST)
+            </button>
+          </div>
         </div>
       </div>
     </div>
