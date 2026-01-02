@@ -383,13 +383,15 @@ export default function SpeedryConquest() {
         )}
         {screen === "game" && (
           <GameScreen
-            onBack={() => setScreen("menu")}
-            onLevelUp={handleLevelComplete}
+            onBack={() => setScreen("levelSelect")}
+            onLevelUp={handleLevelSwitch}
+            onLevelUnlock={handleLevelComplete} // Pass the save-only function
             onWarp={handleWarp}
             xp={xp}
             onXpChange={setXp}
-            level={level} // Pass level to GameScreen
-            onGameOver={() => setScreen("gameOver")} // Added prop
+            level={level}
+            onGameOver={() => setScreen("menu")}
+            playerId={playerId}
           />
         )}
         {screen === "gameOver" && (
@@ -716,6 +718,7 @@ function GameScreen({
   onXpChange, // Added prop
   level, // Added prop
   onGameOver, // Added prop
+  playerId, // Added prop
 }: {
   onBack: () => void
   onLevelUp: (newLevel: number) => void
@@ -725,6 +728,7 @@ function GameScreen({
   onXpChange: (newXp: number) => void
   level: number
   onGameOver: () => void
+  playerId: string
 }) {
   // Formula: Pairs = Level + 1. 
   // Refined Time Logic: 
