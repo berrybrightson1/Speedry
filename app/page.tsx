@@ -93,6 +93,43 @@ export default function SpeedryConquest() {
   const [roomData, setRoomData] = useState<RoomData | null>(null)
   const [matchCode, setMatchCode] = useState<string>("")
 
+  // GLOBAL STORE STATE
+  const [showGlobalStore, setShowGlobalStore] = useState(false)
+
+  // PAYMENT HANDLER (LIFTED)
+  const handlePaystackPayment = (amountGHS: number) => {
+    // @ts-ignore
+    if (typeof window.PaystackPop === 'undefined') {
+      toast.error("Payment system loading... ensure internet connection.")
+      return
+    }
+
+    // @ts-ignore
+    const handler = window.PaystackPop.setup({
+      key: 'pk_live_689412f7cc3058bf05f989dec1d3d370da60ccd1',
+      email: `${playerId || 'guest'}@speedry.net`,
+      amount: amountGHS * 100, // Convert to kobo/pesewas
+      currency: 'GHS',
+      channels: ['mobile_money', 'card'],
+      callback: (response: any) => {
+        let xpReward = 0
+        if (amountGHS === 5) xpReward = 250
+        else if (amountGHS === 10) xpReward = 500
+        else if (amountGHS === 20) xpReward = 1200
+        else if (amountGHS === 30) xpReward = 1800
+        else if (amountGHS === 40) xpReward = 2500
+
+        setXp(prev => prev + xpReward)
+        setShowGlobalStore(false)
+        toast.success(`Payment Verified! +${xpReward} XP Added.`)
+      },
+      onClose: () => {
+        toast.info("Transaction cancelled")
+      }
+    })
+    handler.openIframe()
+  }
+
   useEffect(() => {
     // GLOBAL RESET CHECK (Version Control)
     const CURRENT_VERSION = "2.0_GLOBAL_RESET" // Change this string to force a reset for everyone
@@ -350,9 +387,9 @@ export default function SpeedryConquest() {
             onLevelSelect={() => setScreen("levelSelect")}
             onMultiplayer={handleMultiplayer}
             onCreateMatch={handleCreateMatch}
-            onJoinMatch={() => setScreen("joinMatch")}
             bestLevel={bestLevel}
             xp={xp}
+            onOpenStore={() => setShowGlobalStore(true)}
           />
         )}
 
@@ -392,6 +429,7 @@ export default function SpeedryConquest() {
             level={level}
             onGameOver={() => setScreen("menu")}
             playerId={playerId}
+            onOpenStore={() => setShowGlobalStore(true)}
           />
         )}
         {screen === "gameOver" && (
@@ -409,6 +447,97 @@ export default function SpeedryConquest() {
         )}
       </div>
       <InstallPrompt />
+
+      {/* GLOBAL XP STORE MODAL */}
+      {showGlobalStore && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.2s_ease-out] border-4 border-orange-100">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <div className="bg-orange-100 p-2 rounded-xl">
+                  <Zap className="w-6 h-6 text-orange-500 fill-orange-500" />
+                </div>
+                <div>
+                  <h3 className="text-[#1e293b] text-xl font-black">GET XP</h3>
+                  <p className="text-slate-400 text-xs font-bold">INSTANT BOOST</p>
+                </div>
+              </div>
+              <button onClick={() => setShowGlobalStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
+                <XCircle className="h-6 w-6 text-slate-400 hover:text-slate-600" />
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {/* 5 GHS */}
+              <div className="group bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(5)}>
+                <div className="flex items-center gap-3">
+                  <div className="bg-slate-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-slate-500">S</div>
+                  <div>
+                    <div className="font-black text-slate-700 text-lg">250 XP</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tiny Boost</div>
+                  </div>
+                </div>
+                <button className="bg-slate-800 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg group-hover:scale-105 transition-transform">5 GHS</button>
+              </div>
+
+              {/* 10 GHS */}
+              <div className="group bg-orange-50 hover:bg-orange-100 p-3 rounded-2xl border-2 border-orange-100 hover:border-orange-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(10)}>
+                <div className="flex items-center gap-3">
+                  <div className="bg-orange-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-orange-600">M</div>
+                  <div>
+                    <div className="font-black text-orange-600 text-lg">500 XP</div>
+                    <div className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Starter</div>
+                  </div>
+                </div>
+                <button className="bg-orange-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform">10 GHS</button>
+              </div>
+
+              {/* 20 GHS */}
+              <div className="group bg-blue-50 hover:bg-blue-100 p-3 rounded-2xl border-2 border-blue-100 hover:border-blue-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(20)}>
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-blue-600">L</div>
+                  <div>
+                    <div className="font-black text-blue-600 text-lg">1200 XP</div>
+                    <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Value</div>
+                  </div>
+                </div>
+                <button className="bg-blue-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">20 GHS</button>
+              </div>
+
+              {/* 30 GHS */}
+              <div className="group bg-purple-50 hover:bg-purple-100 p-3 rounded-2xl border-2 border-purple-100 hover:border-purple-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(30)}>
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-purple-600">X</div>
+                  <div>
+                    <div className="font-black text-purple-600 text-lg">1800 XP</div>
+                    <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Pro</div>
+                  </div>
+                </div>
+                <button className="bg-purple-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-purple-500/30 group-hover:scale-105 transition-transform">30 GHS</button>
+              </div>
+
+              {/* 40 GHS */}
+              <div className="group bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl border-2 border-indigo-400 flex justify-between items-center transform hover:scale-[1.02] transition-all cursor-pointer shadow-xl relative overflow-hidden" onClick={() => handlePaystackPayment(40)}>
+                <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="bg-white/20 w-10 h-10 rounded-xl flex items-center justify-center font-black text-white">★</div>
+                  <div>
+                    <div className="font-black text-white text-lg">2500 XP</div>
+                    <div className="text-[10px] text-indigo-100 font-bold uppercase tracking-wider">Best Deal</div>
+                  </div>
+                </div>
+                <button className="bg-white text-indigo-600 px-4 py-2 rounded-xl font-black text-sm shadow-lg relative z-10">40 GHS</button>
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1">
+                <Clock className="w-3 h-3" /> SECURE CHECKOUT • PAYSTACK / MOMO
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -541,6 +670,7 @@ function MenuScreen({
   onJoinMatch,
   bestLevel,
   xp,
+  onOpenStore,
 }: {
   onQuickPlay: () => void
   onContinue: () => void
@@ -548,6 +678,7 @@ function MenuScreen({
   onMultiplayer: () => void
   onCreateMatch: () => void
   onJoinMatch: () => void
+  onOpenStore: () => void
   bestLevel: number
   xp: number
 }) {
@@ -559,6 +690,16 @@ function MenuScreen({
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
         <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
+      </div>
+
+      <div className="w-full max-w-xs bg-slate-100 rounded-xl p-2 flex justify-between items-center px-4">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
+          <span className="text-slate-700 font-black text-lg">{xp} XP</span>
+        </div>
+        <button onClick={onOpenStore} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm active:scale-95 transition-all">
+          GET MORE
+        </button>
       </div>
 
       <div className="w-full max-w-xs">
@@ -719,6 +860,7 @@ function GameScreen({
   level, // Added prop
   onGameOver, // Added prop
   playerId, // Added prop
+  onOpenStore, // Added prop
 }: {
   onBack: () => void
   onLevelUp: (newLevel: number) => void
@@ -729,6 +871,7 @@ function GameScreen({
   level: number
   onGameOver: () => void
   playerId: string
+  onOpenStore: () => void
 }) {
   // Formula: Pairs = Level + 1. 
   // Refined Time Logic: 
@@ -770,7 +913,6 @@ function GameScreen({
   const [showPreview, setShowPreview] = useState(true)
   const [previewTimeLeft, setPreviewTimeLeft] = useState(5)
 
-  const [showStore, setShowStore] = useState(false)
   const [targetTime, setTargetTime] = useState<number | null>(null)
 
   // Custom Modal States
@@ -1264,78 +1406,13 @@ function GameScreen({
               {xp} XP
             </div>
             <button
-              onClick={() => setShowStore(true)}
+              onClick={onOpenStore}
               className={`${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]"} text-white rounded-xl p-2 shadow-md transition-all hover:scale-110`}
             >
               <Plus className="h-4 w-4" />
             </button>
           </div>
         </div>
-
-        {/* XP STORE MODAL */}
-        {showStore && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-2xl flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.3s_ease-out]">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-[#1e293b] text-xl font-black">GET MORE XP</h3>
-                <button onClick={() => setShowStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
-                  <LogOut className="h-4 w-4 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {/* 5 GHS */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-slate-700 text-lg">250 XP</div>
-                    <div className="text-xs text-slate-500 font-bold">Tiny Boost</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(5)} className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">5 GHS</button>
-                </div>
-
-                {/* 10 GHS */}
-                <div className="bg-orange-50 p-3 rounded-xl border border-orange-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-orange-600 text-lg">500 XP</div>
-                    <div className="text-xs text-orange-500 font-bold">Starter Pack</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(10)} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">10 GHS</button>
-                </div>
-
-                {/* 20 GHS */}
-                <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-blue-600 text-lg">1200 XP</div>
-                    <div className="text-xs text-blue-500 font-bold">Great Value</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(20)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">20 GHS</button>
-                </div>
-
-                {/* 30 GHS */}
-                <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex justify-between items-center">
-                  <div>
-                    <div className="font-black text-purple-600 text-lg">1800 XP</div>
-                    <div className="text-xs text-purple-500 font-bold">Pro Pack</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(30)} className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">30 GHS</button>
-                </div>
-
-                {/* 40 GHS */}
-                <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-3 rounded-xl border border-indigo-200 flex justify-between items-center shadow-md transform scale-105">
-                  <div>
-                    <div className="font-black text-indigo-600 text-lg">2500 XP</div>
-                    <div className="text-xs text-indigo-500 font-bold">BEST DEAL</div>
-                  </div>
-                  <button onClick={() => handlePaystackPayment(40)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:scale-110 active:scale-95 transition-all text-white">40 GHS</button>
-                </div>
-              </div>
-
-              <div className="mt-4 text-center">
-                <p className="text-[10px] text-slate-400 font-medium">SECURE PAYMENTS BY PAYSTACK & MTN MOMO</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* CHEAT INPUT MODAL */}
         {showCheatInput && (
