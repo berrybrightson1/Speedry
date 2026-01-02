@@ -150,6 +150,14 @@ export default function SpeedryConquest() {
 
       // Set new version
       localStorage.setItem("speedry_data_version", CURRENT_VERSION)
+
+      // Reset State
+      setXp(0)
+      setLevel(1)
+      setBestLevel(1)
+      setIsLoading(false)
+      toast.info("Update installed! Game progress has been reset for the new season.")
+      return // Stop execution here, don't load old data
     }
 
     // PATCH NOTES CHECK (Content Update)
@@ -161,120 +169,73 @@ export default function SpeedryConquest() {
       setHelpTab("updates")
       setShowHelp(true)
       localStorage.setItem("speedry_patch_version", PATCH_VERSION)
-      toast.info("New Update Installed! Check out what's changed.", { icon: '🚀' })
+      // toast.info("New Update Installed! Check out what's changed.", { icon: '🚀' })
     }
-
-
-    // Reset State
-    setXp(0)
-    setLevel(1)
-    setBestLevel(1)
-    setIsLoading(false)
-    toast.info("Update installed! Game progress has been reset for the new season.")
-    return
-  }
 
     // Standard Loading
     const hasSeenWelcome = localStorage.getItem('speedry_welcomed')
-  const savedBestLevel = localStorage.getItem("speedry_best_level")
-  const storedPlayerId = localStorage.getItem("speedry_player_id")
+    const savedBestLevel = localStorage.getItem("speedry_best_level")
+    const storedPlayerId = localStorage.getItem("speedry_player_id")
 
-  if (savedBestLevel) setBestLevel(Number.parseInt(savedBestLevel))
+    if (savedBestLevel) setBestLevel(Number.parseInt(savedBestLevel))
 
-  if (storedPlayerId) {
-    setPlayerId(storedPlayerId)
-  } else {
-    const newPlayerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    setPlayerId(newPlayerId)
-    localStorage.setItem("speedry_player_id", newPlayerId)
+    if (storedPlayerId) {
+      setPlayerId(storedPlayerId)
+    } else {
+      const newPlayerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      setPlayerId(newPlayerId)
+      localStorage.setItem("speedry_player_id", newPlayerId)
+    }
+
+    const savedXp = localStorage.getItem("speedry_xp")
+    if (savedXp) setXp(Number.parseInt(savedXp))
+
+    if (!hasSeenWelcome) {
+      setScreen('welcome')
+    } else {
+      setScreen('menu')
+    }
+
+    setIsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem("speedry_xp", xp.toString())
+  }, [xp])
+
+  const handleStartGame = (startLevel: number) => {
+    setLevel(startLevel)
+    setScreen("game")
   }
 
-  const savedXp = localStorage.getItem("speedry_xp")
-  if (savedXp) setXp(Number.parseInt(savedXp))
-
-  if (!hasSeenWelcome) {
-    setScreen('welcome')
-  } else {
-    setScreen('menu')
+  const handleLevelComplete = (newLevel: number) => {
+    // Just unlock the level without forcing a switch if used for saving
+    if (newLevel > bestLevel) {
+      setBestLevel(newLevel)
+      localStorage.setItem("speedry_best_level", newLevel.toString())
+    }
   }
 
-  setIsLoading(false)
-}, [])
-
-useEffect(() => {
-  localStorage.setItem("speedry_xp", xp.toString())
-}, [xp])
-
-const handleStartGame = (startLevel: number) => {
-  setLevel(startLevel)
-  setScreen("game")
-}
-
-const handleLevelComplete = (newLevel: number) => {
-  // Just unlock the level without forcing a switch if used for saving
-  if (newLevel > bestLevel) {
-    setBestLevel(newLevel)
-    localStorage.setItem("speedry_best_level", newLevel.toString())
+  const handleLevelSwitch = (newLevel: number) => {
+    setLevel(newLevel)
+    handleLevelComplete(newLevel)
   }
-}
 
-const handleLevelSwitch = (newLevel: number) => {
-  setLevel(newLevel)
-  handleLevelComplete(newLevel)
-}
-
-const handleWarp = (targetLevel: number) => {
-  setLevel(targetLevel)
-  setScreen("game")
-}
-
-const handleMultiplayer = async () => {
-  if (!playerId) return
-
-  const roomRef = push(ref(database, "rooms"))
-  const newRoomId = roomRef.key
-
-  if (newRoomId) {
-    await set(roomRef, {
-      gameState: "lobby",
-      currentTurn: playerId,
-      players: {
-        [playerId]: {
-          lives: 2,
-          isReady: false,
-          currentLevel: 1,
-          score: 0,
-          name: "Player 1",
-        },
-      },
-    })
-
-    setRoomId(newRoomId)
-    setScreen("lobby")
+  const handleWarp = (targetLevel: number) => {
+    setLevel(targetLevel)
+    setScreen("game")
   }
-}
 
-const handleCreateMatch = async () => {
-  if (!playerId) return
-  setIsLoading(true)
+  const handleMultiplayer = async () => {
+    if (!playerId) return
 
-  try {
     const roomRef = push(ref(database, "rooms"))
     const newRoomId = roomRef.key
 
     if (newRoomId) {
-      // Generate a 6-character unique alphanumeric code
-      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-      let code = ""
-      for (let i = 0; i < 6; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length))
-      }
-
       await set(roomRef, {
         gameState: "lobby",
         currentTurn: playerId,
-        matchCode: code,
-        hostId: playerId,
         players: {
           [playerId]: {
             lives: 2,
@@ -287,206 +248,243 @@ const handleCreateMatch = async () => {
       })
 
       setRoomId(newRoomId)
-      setMatchCode(code)
-      // Give explicit feedback or time for state to settle if needed, but usually instant
       setScreen("lobby")
     }
-  } catch (error) {
-    console.error("Error creating match:", error)
-    alert("Failed to create match. Please try again.")
-  } finally {
-    setIsLoading(false)
   }
-}
 
-const handleJoinMatch = async (code: string) => {
-  if (!playerId || !code) return
-  setIsLoading(true)
+  const handleCreateMatch = async () => {
+    if (!playerId) return
+    setIsLoading(true)
 
-  try {
-    // 1. Efficient Query: Only fetch rooms matching the code
-    const roomsRef = ref(database, "rooms")
-    const codeQuery = query(roomsRef, orderByChild("matchCode"), equalTo(code.toUpperCase()))
-    const snapshot = await get(codeQuery)
-    const rooms = snapshot.val()
+    try {
+      const roomRef = push(ref(database, "rooms"))
+      const newRoomId = roomRef.key
 
-    if (!rooms) {
-      alert("Match not found! Check the code and try again.")
-      setIsLoading(false)
-      return
-    }
-
-    // Should only be one room with this code, but find first just in case
-    const [foundRoomId, roomData]: any = Object.entries(rooms)[0]
-
-    if (roomData.gameState !== "lobby") {
-      alert("Match already started!")
-      setIsLoading(false)
-      return
-    }
-
-    // 2. Transaction for Safe Joining (Prevents Race Conditions)
-    const roomPlayersRef = ref(database, `rooms/${foundRoomId}/players`)
-    await runTransaction(roomPlayersRef, (currentPlayers) => {
-      if (currentPlayers === null) return currentPlayers // Should exist
-
-      if (currentPlayers[playerId]) {
-        // Player already exists - allow rejoin
-        return currentPlayers
-      }
-
-      if (Object.keys(currentPlayers).length < 2) {
-        // Room has space - add player
-        // IMPORTANT: Check if "Player 1" exists to name correctly, though logic dictates host is P1
-        // We'll just force name to "Player 2" for the joiner
-        currentPlayers[playerId] = {
-          lives: 2,
-          isReady: false,
-          currentLevel: 1,
-          score: 0,
-          name: "Player 2",
+      if (newRoomId) {
+        // Generate a 6-character unique alphanumeric code
+        const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        let code = ""
+        for (let i = 0; i < 6; i++) {
+          code += characters.charAt(Math.floor(Math.random() * characters.length))
         }
-        return currentPlayers
-      } else {
-        // Room full - abort transaction
-        return undefined // Abort
+
+        await set(roomRef, {
+          gameState: "lobby",
+          currentTurn: playerId,
+          matchCode: code,
+          hostId: playerId,
+          players: {
+            [playerId]: {
+              lives: 2,
+              isReady: false,
+              currentLevel: 1,
+              score: 0,
+              name: "Player 1",
+            },
+          },
+        })
+
+        setRoomId(newRoomId)
+        setMatchCode(code)
+        // Give explicit feedback or time for state to settle if needed, but usually instant
+        setScreen("lobby")
       }
-    })
-      .then((result) => {
-        if (result.committed) {
-          setRoomId(foundRoomId)
-          setScreen("lobby")
+    } catch (error) {
+      console.error("Error creating match:", error)
+      alert("Failed to create match. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleJoinMatch = async (code: string) => {
+    if (!playerId || !code) return
+    setIsLoading(true)
+
+    try {
+      // 1. Efficient Query: Only fetch rooms matching the code
+      const roomsRef = ref(database, "rooms")
+      const codeQuery = query(roomsRef, orderByChild("matchCode"), equalTo(code.toUpperCase()))
+      const snapshot = await get(codeQuery)
+      const rooms = snapshot.val()
+
+      if (!rooms) {
+        alert("Match not found! Check the code and try again.")
+        setIsLoading(false)
+        return
+      }
+
+      // Should only be one room with this code, but find first just in case
+      const [foundRoomId, roomData]: any = Object.entries(rooms)[0]
+
+      if (roomData.gameState !== "lobby") {
+        alert("Match already started!")
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Transaction for Safe Joining (Prevents Race Conditions)
+      const roomPlayersRef = ref(database, `rooms/${foundRoomId}/players`)
+      await runTransaction(roomPlayersRef, (currentPlayers) => {
+        if (currentPlayers === null) return currentPlayers // Should exist
+
+        if (currentPlayers[playerId]) {
+          // Player already exists - allow rejoin
+          return currentPlayers
+        }
+
+        if (Object.keys(currentPlayers).length < 2) {
+          // Room has space - add player
+          // IMPORTANT: Check if "Player 1" exists to name correctly, though logic dictates host is P1
+          // We'll just force name to "Player 2" for the joiner
+          currentPlayers[playerId] = {
+            lives: 2,
+            isReady: false,
+            currentLevel: 1,
+            score: 0,
+            name: "Player 2",
+          }
+          return currentPlayers
         } else {
-          alert("Match is full!")
+          // Room full - abort transaction
+          return undefined // Abort
         }
       })
-      .catch((err) => {
-        console.error("Transaction failed", err)
-        alert("Failed to join match.")
-      })
+        .then((result) => {
+          if (result.committed) {
+            setRoomId(foundRoomId)
+            setScreen("lobby")
+          } else {
+            alert("Match is full!")
+          }
+        })
+        .catch((err) => {
+          console.error("Transaction failed", err)
+          alert("Failed to join match.")
+        })
 
-  } catch (error) {
-    console.error("Error joining match:", error)
-    alert("An error occurred while joining.")
-  } finally {
-    setIsLoading(false)
+    } catch (error) {
+      console.error("Error joining match:", error)
+      alert("An error occurred while joining.")
+    } finally {
+      setIsLoading(false)
+    }
   }
-}
 
-if (isLoading) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
+        <Loader2 className="w-12 h-12 animate-spin text-[#8b5cf6]" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
-      <Loader2 className="w-12 h-12 animate-spin text-[#8b5cf6]" />
+      <div className="w-full max-w-md">
+        {screen === "welcome" && (
+          <WelcomeScreen
+            onGetStarted={() => {
+              localStorage.setItem('speedry_welcomed', 'true')
+              setScreen('menu')
+            }}
+          />
+        )}
+        {screen === "menu" && (
+          <MenuScreen
+            onQuickPlay={() => {
+              // Quick Play: Random level 1-5
+              const randomLevel = Math.floor(Math.random() * 5) + 1
+              handleStartGame(randomLevel)
+            }}
+            onContinue={() => handleStartGame(bestLevel)}
+            onLevelSelect={() => setScreen("levelSelect")}
+            onMultiplayer={handleMultiplayer}
+            onCreateMatch={handleCreateMatch}
+            onJoinMatch={() => setScreen("joinMatch")}
+            bestLevel={bestLevel}
+            xp={xp}
+            onOpenStore={() => setShowGlobalStore(true)}
+            onOpenHelp={() => {
+              setHelpTab("guide")
+              setShowHelp(true)
+            }}
+          />
+        )}
+
+        {screen === "joinMatch" && <JoinMatchScreen onJoinMatch={handleJoinMatch} onBack={() => setScreen("menu")} />}
+        {screen === "levelSelect" && (
+          <LevelSelectScreen bestLevel={bestLevel} onSelectLevel={handleStartGame} onBack={() => setScreen("menu")} />
+        )}
+        {screen === "lobby" && roomId && (
+          <LobbyScreen
+            roomId={roomId}
+            playerId={playerId}
+            roomData={roomData}
+            setRoomData={setRoomData}
+            onStartGame={() => setScreen("multiplayerGame")}
+            onBack={() => setScreen("menu")}
+          />
+        )}
+        {screen === "multiplayerGame" && roomId && roomData && (
+          <MultiplayerGameScreen
+            roomId={roomId}
+            playerId={playerId}
+            roomData={roomData}
+            setRoomData={setRoomData}
+            onGameEnd={() => setScreen("menu")}
+            xp={xp}
+            onXpChange={setXp}
+          />
+        )}
+        {screen === "game" && (
+          <GameScreen
+            onBack={() => setScreen("levelSelect")}
+            onLevelUp={handleLevelSwitch}
+            onLevelUnlock={handleLevelComplete} // Pass the save-only function
+            onWarp={handleWarp}
+            xp={xp}
+            onXpChange={setXp}
+            level={level}
+            onGameOver={() => setScreen("menu")}
+            playerId={playerId}
+            onOpenStore={() => setShowGlobalStore(true)}
+          />
+        )}
+        {screen === "gameOver" && (
+          <GameOverScreen level={level} onRetry={() => setScreen("game")} onMenu={() => setScreen("menu")} />
+        )}
+        {screen === "victory" && (
+          <VictoryScreen
+            level={level}
+            onNextLevel={() => {
+              setLevel(level + 1)
+              setScreen("game")
+            }}
+            onMenu={() => setScreen("menu")}
+          />
+        )}
+      </div>
+      <InstallPrompt />
+
+      {/* GLOBAL XP STORE MODAL */}
+      {showGlobalStore && (
+        <GlobalStoreModal
+          isOpen={showGlobalStore}
+          onClose={() => setShowGlobalStore(false)}
+          onPurchase={handlePaystackPayment}
+        />
+      )}
+
+      {/* GLOBAL HELP MODAL */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        activeTab={helpTab}
+        onTabChange={setHelpTab}
+      />
     </div>
   )
-}
-
-return (
-  <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
-    <div className="w-full max-w-md">
-      {screen === "welcome" && (
-        <WelcomeScreen
-          onGetStarted={() => {
-            localStorage.setItem('speedry_welcomed', 'true')
-            setScreen('menu')
-          }}
-        />
-      )}
-      {screen === "menu" && (
-        <MenuScreen
-          onQuickPlay={() => {
-            // Quick Play: Random level 1-5
-            const randomLevel = Math.floor(Math.random() * 5) + 1
-            handleStartGame(randomLevel)
-          }}
-          onContinue={() => handleStartGame(bestLevel)}
-          onLevelSelect={() => setScreen("levelSelect")}
-          onMultiplayer={handleMultiplayer}
-          onCreateMatch={handleCreateMatch}
-          onJoinMatch={() => setScreen("joinMatch")}
-          bestLevel={bestLevel}
-          xp={xp}
-          onOpenStore={() => setShowGlobalStore(true)}
-          onOpenHelp={() => {
-            setHelpTab("guide")
-            setShowHelp(true)
-          }}
-        />
-      )}
-
-      {screen === "joinMatch" && <JoinMatchScreen onJoinMatch={handleJoinMatch} onBack={() => setScreen("menu")} />}
-      {screen === "levelSelect" && (
-        <LevelSelectScreen bestLevel={bestLevel} onSelectLevel={handleStartGame} onBack={() => setScreen("menu")} />
-      )}
-      {screen === "lobby" && roomId && (
-        <LobbyScreen
-          roomId={roomId}
-          playerId={playerId}
-          roomData={roomData}
-          setRoomData={setRoomData}
-          onStartGame={() => setScreen("multiplayerGame")}
-          onBack={() => setScreen("menu")}
-        />
-      )}
-      {screen === "multiplayerGame" && roomId && roomData && (
-        <MultiplayerGameScreen
-          roomId={roomId}
-          playerId={playerId}
-          roomData={roomData}
-          setRoomData={setRoomData}
-          onGameEnd={() => setScreen("menu")}
-          xp={xp}
-          onXpChange={setXp}
-        />
-      )}
-      {screen === "game" && (
-        <GameScreen
-          onBack={() => setScreen("levelSelect")}
-          onLevelUp={handleLevelSwitch}
-          onLevelUnlock={handleLevelComplete} // Pass the save-only function
-          onWarp={handleWarp}
-          xp={xp}
-          onXpChange={setXp}
-          level={level}
-          onGameOver={() => setScreen("menu")}
-          playerId={playerId}
-          onOpenStore={() => setShowGlobalStore(true)}
-        />
-      )}
-      {screen === "gameOver" && (
-        <GameOverScreen level={level} onRetry={() => setScreen("game")} onMenu={() => setScreen("menu")} />
-      )}
-      {screen === "victory" && (
-        <VictoryScreen
-          level={level}
-          onNextLevel={() => {
-            setLevel(level + 1)
-            setScreen("game")
-          }}
-          onMenu={() => setScreen("menu")}
-        />
-      )}
-    </div>
-    <InstallPrompt />
-
-    {/* GLOBAL XP STORE MODAL */}
-    {showGlobalStore && (
-      <GlobalStoreModal
-        isOpen={showGlobalStore}
-        onClose={() => setShowGlobalStore(false)}
-        onPurchase={handlePaystackPayment}
-      />
-    )}
-
-    {/* GLOBAL HELP MODAL */}
-    <HelpModal
-      isOpen={showHelp}
-      onClose={() => setShowHelp(false)}
-      activeTab={helpTab}
-      onTabChange={setHelpTab}
-    />
-  </div>
-)
 }
 
 function InstallPrompt() {
