@@ -798,40 +798,22 @@ function MenuScreen({
 }) {
   return (
     <div className="relative w-full flex flex-col items-center justify-center space-y-8 py-12">
-      <div className="absolute top-4 left-4 flex items-center gap-2">
-        {user ? (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1.5 pr-3 rounded-full border border-white/50 shadow-sm animate-in fade-in slide-in-from-left-4">
-            {/* Avatar or Icon */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner">
-              {user.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" /> : <User className="w-4 h-4" />}
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-slate-500 leading-none">SIGNED IN</p>
-              <p className="text-xs font-black text-slate-700 leading-none truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</p>
-            </div>
-            <button onClick={onLogout} className="ml-2 p-1 hover:bg-red-100 rounded-full group" title="Logout">
-              <LogOut className="w-3 h-3 text-slate-400 group-hover:text-red-500" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={onLogin}
-            className="flex items-center gap-2 bg-white p-2 pr-4 rounded-full shadow-md border border-slate-100 hover:scale-105 active:scale-95 transition-all group"
-          >
-            <div className="bg-slate-100 p-1.5 rounded-full group-hover:bg-indigo-100 transition-colors">
-              <User className="w-4 h-4 text-slate-600 group-hover:text-indigo-600" />
-            </div>
-            <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600">Login to Cloud Save</span>
-          </button>
-        )}
-      </div>
-
-      <div className="text-center">
+      <div className="text-center relative">
+        {/* BRANDING */}
         <h1 className="text-3xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
         <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
+
+        {/* AUTH PILL (Centered & Animated) */}
+        <div className="absolute left-1/2 -translate-x-1/2 -top-14 z-20">
+          <AuthPill
+            user={user}
+            onLogin={onLogin}
+            onLogout={onLogout}
+          />
+        </div>
       </div>
 
       <div className="w-full max-w-xs">
@@ -2915,6 +2897,66 @@ function AuthChoiceModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLogin: () => void, onLogout: () => void }) {
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  // Auto-shrink after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => setIsExpanded(false), 3000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div
+      className={`relative transition-all duration-500 ease-in-out cursor-pointer group ${isExpanded ? "w-auto min-w-[200px]" : "w-10 hover:w-[200px]"
+        }`}
+      onClick={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
+    >
+      <div className={`overflow-hidden bg-white/80 backdrop-blur-md shadow-xl border border-white/50 rounded-full flex items-center h-10 transition-all ${isExpanded ? "pl-1 pr-3" : "p-1 justify-center"}`}>
+
+        {/* Icon Section (Always Visible) */}
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+          }`}>
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" />
+          ) : (
+            <User className="w-4 h-4" />
+          )}
+        </div>
+
+        {/* Text Section (Collapsible) */}
+        <div className={`whitespace-nowrap overflow-hidden transition-all duration-500 flex flex-col justify-center items-start ml-2 ${isExpanded ? "opacity-100 max-w-[200px]" : "opacity-0 max-w-0"
+          }`}>
+          {user ? (
+            <>
+              <span className="text-[10px] font-bold text-slate-400 leading-none">SYNC ACTIVE</span>
+              <span className="text-xs font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
+            </>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onLogin() }} className="text-left">
+              <span className="text-[10px] font-bold text-indigo-400 leading-none">CLOUDSAVE</span>
+              <span className="text-xs font-black text-slate-700 leading-none block">Tap to Sign In</span>
+            </button>
+          )}
+        </div>
+
+        {/* Logout Button (Only when expanded and logged in) */}
+        {user && (
+          <div className={`transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-2" : "w-0 opacity-0 overflow-hidden"}`}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onLogout() }}
+              className="p-1 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500"
+            >
+              <LogOut className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
