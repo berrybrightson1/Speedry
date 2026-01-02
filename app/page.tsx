@@ -201,12 +201,15 @@ export default function SpeedryConquest() {
       // The onAuthStateChanged hook handles the rest
     } catch (error: any) {
       console.error("Login Failed", error)
-      // Show specific error to user (helps with domain authorization issues)
-      const errorMessage = error?.message || "Unknown error"
-      if (errorMessage.includes("unauthorized-domain")) {
-        toast.error("Domain Error: Add this URL to Firebase Console > Auth > Settings")
+      // Show specific error to user
+      if (error?.code === "auth/popup-closed-by-user") {
+        toast.info("Login cancelled")
+      } else if (error?.code === "auth/unauthorized-domain") {
+        toast.error("Domain Error: Add to Firebase Console > Auth > Settings")
+      } else if (error?.code === "auth/operation-not-allowed") {
+        toast.error("Config Error: Enable Google Sign-In in Firebase Console")
       } else {
-        toast.error(`Login Failed: ${errorMessage.split(":")[0]}`)
+        toast.error(`Login Error: ${error.code || error.message}`)
       }
     }
   }
@@ -2903,59 +2906,45 @@ function AuthChoiceModal({
 }
 
 function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLogin: () => void, onLogout: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(true)
-
-  // Auto-shrink after 3 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => setIsExpanded(false), 3000)
-    return () => clearTimeout(timer)
-  }, [])
-
+  // Static state - Always expanded
   return (
-    <div
-      className={`relative transition-all duration-500 ease-in-out cursor-pointer group ${isExpanded ? "w-auto min-w-[200px]" : "w-10 hover:w-[200px]"
-        }`}
-      onClick={() => setIsExpanded(true)}
-      onMouseLeave={() => setIsExpanded(false)}
-    >
-      <div className={`overflow-hidden bg-white/80 backdrop-blur-md shadow-xl border border-white/50 rounded-full flex items-center h-10 transition-all ${isExpanded ? "pl-1 pr-3" : "p-1 justify-center"}`}>
+    <div className="relative group cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
+      <div className="bg-white/90 backdrop-blur-md shadow-xl border border-white/60 rounded-full flex items-center h-12 pl-1.5 pr-4 gap-3">
 
-        {/* Icon Section (Always Visible) */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+        {/* Icon Section */}
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-indigo-50 text-indigo-600"
           }`}>
           {user?.photoURL ? (
             <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" />
           ) : (
-            <User className="w-4 h-4" />
+            <User className="w-5 h-5" />
           )}
         </div>
 
-        {/* Text Section (Collapsible) */}
-        <div className={`whitespace-nowrap overflow-hidden transition-all duration-500 flex flex-col justify-center items-start ml-2 ${isExpanded ? "opacity-100 max-w-[200px]" : "opacity-0 max-w-0"
-          }`}>
+        {/* Text Section */}
+        <div className="flex flex-col justify-center items-start">
           {user ? (
             <>
-              <span className="text-[10px] font-bold text-slate-400 leading-none">SYNC ACTIVE</span>
-              <span className="text-xs font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
+              <span className="text-[10px] font-bold text-slate-400 leading-none mb-0.5">SYNC ACTIVE</span>
+              <span className="text-sm font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
             </>
           ) : (
-            <button onClick={(e) => { e.stopPropagation(); onLogin() }} className="text-left">
-              <span className="text-[10px] font-bold text-indigo-400 leading-none">CLOUDSAVE</span>
-              <span className="text-xs font-black text-slate-700 leading-none block">Tap to Sign In</span>
+            <button onClick={onLogin} className="text-left">
+              <span className="text-[10px] font-bold text-indigo-500 leading-none mb-0.5">CLOUDSAVE</span>
+              <span className="text-sm font-black text-slate-800 leading-none block">Tap to Sign In</span>
             </button>
           )}
         </div>
 
-        {/* Logout Button (Only when expanded and logged in) */}
+        {/* Logout Button (Only when logged in) */}
         {user && (
-          <div className={`transition-all duration-300 ${isExpanded ? "w-auto opacity-100 ml-2" : "w-0 opacity-0 overflow-hidden"}`}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onLogout() }}
-              className="p-1 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500"
-            >
-              <LogOut className="w-3 h-3" />
-            </button>
-          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onLogout() }}
+            className="ml-1 p-1.5 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         )}
       </div>
     </div>
