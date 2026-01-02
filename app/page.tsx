@@ -2936,15 +2936,15 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
   // Condensed state - Smaller component
   return (
     <div className="relative group cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
-      <div className="bg-white/80 backdrop-blur-sm shadow-md border border-white/40 rounded-full flex items-center h-8 pl-1 pr-3 gap-2">
+      <div className="bg-white/80 backdrop-blur-sm shadow-md border border-white/40 rounded-full flex items-center py-1.5 pl-1.5 pr-4 gap-2.5">
 
         {/* Icon Section - Smaller */}
-        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center shadow-sm ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-indigo-50 text-indigo-600"
+        <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center shadow-sm ${user ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "bg-indigo-50 text-indigo-600"
           }`}>
           {user?.photoURL ? (
             <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" />
           ) : (
-            <User className="w-3.5 h-3.5" />
+            <User className="w-4 h-4" />
           )}
         </div>
 
@@ -2952,12 +2952,12 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
         <div className="flex flex-col justify-center items-start whitespace-nowrap">
           {user ? (
             <>
-              <span className="text-[7px] font-bold text-slate-400 leading-none mb-0.5 uppercase tracking-wide">Sync Active</span>
+              <span className="text-[8px] font-bold text-slate-400 leading-tight mb-px uppercase tracking-wide">Sync Active</span>
               <span className="text-xs font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
             </>
           ) : (
             <button onClick={onLogin} className="text-left">
-              <span className="text-[7px] font-bold text-indigo-500 leading-none mb-0.5 uppercase tracking-wide">Cloud Save</span>
+              <span className="text-[8px] font-bold text-indigo-500 leading-tight mb-px uppercase tracking-wide">Cloud Save</span>
               <span className="text-xs font-black text-slate-800 leading-none block">Tap to Sign In</span>
             </button>
           )}
@@ -2967,10 +2967,10 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
         {user && (
           <button
             onClick={(e) => { e.stopPropagation(); onLogout() }}
-            className="ml-0.5 p-1 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
+            className="ml-1 p-1 hover:bg-red-100 rounded-full text-slate-400 hover:text-red-500 transition-colors"
             title="Logout"
           >
-            <LogOut className="w-3 h-3" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
