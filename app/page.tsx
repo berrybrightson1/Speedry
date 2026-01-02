@@ -598,7 +598,7 @@ function LevelSelectScreen({
       </div>
       <Button
         onClick={onBack}
-        className="w-full bg-[#a8c5e8] hover:bg-[#8faddb] text-white font-black text-xl py-7 rounded-3xl shadow-md h-auto"
+        className="w-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-xl py-7 rounded-3xl shadow-xl h-auto transition-all hover:scale-105"
       >
         BACK TO MENU
       </Button>
@@ -768,11 +768,20 @@ function GameScreen({
       localStorage.removeItem("speedry_last_reset")
       localStorage.removeItem("speedry_xp_store_seen")
 
-      toast.success("ðŸ›¡ï¸ MASTER RESET EXECUTED: SYSTEM WIPED", {
+      // Exit pause mode and return to menu
+      setIsPaused(false)
+      setShowCheatInput(false)
+
+      toast.success("🛡️ MASTER RESET EXECUTED: SYSTEM WIPED", {
         style: { background: '#1e293b', color: '#10b981', fontWeight: 'bold' }
       })
+
+      // Redirect to menu after toast
+      setTimeout(() => {
+        onBack()
+      }, 1500)
     }
-  }, [xp, onXpChange, onLevelUp, onWarp])
+  }, [xp, onXpChange, onLevelUp, onWarp, onBack])
 
   const handleResetConfirm = () => {
     const lastReset = localStorage.getItem("speedry_last_reset")
@@ -912,7 +921,7 @@ function GameScreen({
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isPaused, levelCompleted, showPreview])
+  }, [isPaused, levelCompleted, showPreview, hintTimeLeft])
 
 
 
