@@ -1736,7 +1736,7 @@ function ModeCarousel({
           <div className="flex-[0_0_100%] min-w-0 relative">
             <button
               onClick={onQuickPlay}
-              className="w-full bg-gradient-to-br from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white p-8 h-48 flex flex-col items-center justify-center transition-all active:scale-95 group"
+              className="w-full bg-gradient-to-br from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
             >
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Zap className="w-8 h-8 text-white fill-white" />
@@ -1747,7 +1747,7 @@ function ModeCarousel({
               </div>
             </button>
             {/* Absolute Badge */}
-            <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+            <div className="absolute top-16 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm z-10">
               <span className="text-xs font-bold text-white uppercase tracking-wider">Fast Action</span>
             </div>
           </div>
@@ -1756,7 +1756,7 @@ function ModeCarousel({
           <div className="flex-[0_0_100%] min-w-0 relative">
             <button
               onClick={onContinue}
-              className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 h-48 flex flex-col items-center justify-center transition-all active:scale-95 group"
+              className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
             >
               <div className="w-full flex items-center justify-between mb-2 px-2">
                 <div className="flex items-center gap-2">
@@ -1783,7 +1783,7 @@ function ModeCarousel({
                 <span>NEXT RANK</span>
               </div>
             </button>
-            <div className="absolute top-4 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30">
+            <div className="absolute top-16 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 shadow-sm z-10 w-fit">
               <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Resume</span>
             </div>
           </div>
