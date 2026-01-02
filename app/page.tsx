@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 
-import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame } from "lucide-react"
+import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import useEmblaCarousel from "embla-carousel-react"
@@ -95,6 +95,8 @@ export default function SpeedryConquest() {
 
   // GLOBAL STORE STATE
   const [showGlobalStore, setShowGlobalStore] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [helpTab, setHelpTab] = useState("guide") // guide, secrets, updates
 
   // PAYMENT HANDLER (LIFTED)
   const handlePaystackPayment = (amountGHS: number) => {
@@ -148,80 +150,131 @@ export default function SpeedryConquest() {
 
       // Set new version
       localStorage.setItem("speedry_data_version", CURRENT_VERSION)
-
-      // Reset State
-      setXp(0)
-      setLevel(1)
-      setBestLevel(1)
-      setIsLoading(false)
-      toast.info("Update installed! Game progress has been reset for the new season.")
-      return
     }
+
+    // PATCH NOTES CHECK (Content Update)
+    const PATCH_VERSION = "2.1_HELP_UPDATE" // Increment this to show Patch Notes
+    const storedPatch = localStorage.getItem("speedry_patch_version")
+
+    if (storedPatch !== PATCH_VERSION) {
+      // New update! Show help modal on 'updates' tab
+      setHelpTab("updates")
+      setShowHelp(true)
+      localStorage.setItem("speedry_patch_version", PATCH_VERSION)
+      toast.info("New Update Installed! Check out what's changed.", { icon: '🚀' })
+    }
+
+
+    // Reset State
+    setXp(0)
+    setLevel(1)
+    setBestLevel(1)
+    setIsLoading(false)
+    toast.info("Update installed! Game progress has been reset for the new season.")
+    return
+  }
 
     // Standard Loading
     const hasSeenWelcome = localStorage.getItem('speedry_welcomed')
-    const savedBestLevel = localStorage.getItem("speedry_best_level")
-    const storedPlayerId = localStorage.getItem("speedry_player_id")
+  const savedBestLevel = localStorage.getItem("speedry_best_level")
+  const storedPlayerId = localStorage.getItem("speedry_player_id")
 
-    if (savedBestLevel) setBestLevel(Number.parseInt(savedBestLevel))
+  if (savedBestLevel) setBestLevel(Number.parseInt(savedBestLevel))
 
-    if (storedPlayerId) {
-      setPlayerId(storedPlayerId)
-    } else {
-      const newPlayerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      setPlayerId(newPlayerId)
-      localStorage.setItem("speedry_player_id", newPlayerId)
-    }
-
-    const savedXp = localStorage.getItem("speedry_xp")
-    if (savedXp) setXp(Number.parseInt(savedXp))
-
-    if (!hasSeenWelcome) {
-      setScreen('welcome')
-    } else {
-      setScreen('menu')
-    }
-
-    setIsLoading(false)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("speedry_xp", xp.toString())
-  }, [xp])
-
-  const handleStartGame = (startLevel: number) => {
-    setLevel(startLevel)
-    setScreen("game")
+  if (storedPlayerId) {
+    setPlayerId(storedPlayerId)
+  } else {
+    const newPlayerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setPlayerId(newPlayerId)
+    localStorage.setItem("speedry_player_id", newPlayerId)
   }
 
-  const handleLevelComplete = (newLevel: number) => {
-    // Just unlock the level without forcing a switch if used for saving
-    if (newLevel > bestLevel) {
-      setBestLevel(newLevel)
-      localStorage.setItem("speedry_best_level", newLevel.toString())
-    }
+  const savedXp = localStorage.getItem("speedry_xp")
+  if (savedXp) setXp(Number.parseInt(savedXp))
+
+  if (!hasSeenWelcome) {
+    setScreen('welcome')
+  } else {
+    setScreen('menu')
   }
 
-  const handleLevelSwitch = (newLevel: number) => {
-    setLevel(newLevel)
-    handleLevelComplete(newLevel)
+  setIsLoading(false)
+}, [])
+
+useEffect(() => {
+  localStorage.setItem("speedry_xp", xp.toString())
+}, [xp])
+
+const handleStartGame = (startLevel: number) => {
+  setLevel(startLevel)
+  setScreen("game")
+}
+
+const handleLevelComplete = (newLevel: number) => {
+  // Just unlock the level without forcing a switch if used for saving
+  if (newLevel > bestLevel) {
+    setBestLevel(newLevel)
+    localStorage.setItem("speedry_best_level", newLevel.toString())
   }
+}
 
-  const handleWarp = (targetLevel: number) => {
-    setLevel(targetLevel)
-    setScreen("game")
+const handleLevelSwitch = (newLevel: number) => {
+  setLevel(newLevel)
+  handleLevelComplete(newLevel)
+}
+
+const handleWarp = (targetLevel: number) => {
+  setLevel(targetLevel)
+  setScreen("game")
+}
+
+const handleMultiplayer = async () => {
+  if (!playerId) return
+
+  const roomRef = push(ref(database, "rooms"))
+  const newRoomId = roomRef.key
+
+  if (newRoomId) {
+    await set(roomRef, {
+      gameState: "lobby",
+      currentTurn: playerId,
+      players: {
+        [playerId]: {
+          lives: 2,
+          isReady: false,
+          currentLevel: 1,
+          score: 0,
+          name: "Player 1",
+        },
+      },
+    })
+
+    setRoomId(newRoomId)
+    setScreen("lobby")
   }
+}
 
-  const handleMultiplayer = async () => {
-    if (!playerId) return
+const handleCreateMatch = async () => {
+  if (!playerId) return
+  setIsLoading(true)
 
+  try {
     const roomRef = push(ref(database, "rooms"))
     const newRoomId = roomRef.key
 
     if (newRoomId) {
+      // Generate a 6-character unique alphanumeric code
+      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+      let code = ""
+      for (let i = 0; i < 6; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+
       await set(roomRef, {
         gameState: "lobby",
         currentTurn: playerId,
+        matchCode: code,
+        hostId: playerId,
         players: {
           [playerId]: {
             lives: 2,
@@ -234,312 +287,206 @@ export default function SpeedryConquest() {
       })
 
       setRoomId(newRoomId)
+      setMatchCode(code)
+      // Give explicit feedback or time for state to settle if needed, but usually instant
       setScreen("lobby")
     }
+  } catch (error) {
+    console.error("Error creating match:", error)
+    alert("Failed to create match. Please try again.")
+  } finally {
+    setIsLoading(false)
   }
+}
 
-  const handleCreateMatch = async () => {
-    if (!playerId) return
-    setIsLoading(true)
+const handleJoinMatch = async (code: string) => {
+  if (!playerId || !code) return
+  setIsLoading(true)
 
-    try {
-      const roomRef = push(ref(database, "rooms"))
-      const newRoomId = roomRef.key
+  try {
+    // 1. Efficient Query: Only fetch rooms matching the code
+    const roomsRef = ref(database, "rooms")
+    const codeQuery = query(roomsRef, orderByChild("matchCode"), equalTo(code.toUpperCase()))
+    const snapshot = await get(codeQuery)
+    const rooms = snapshot.val()
 
-      if (newRoomId) {
-        // Generate a 6-character unique alphanumeric code
-        const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        let code = ""
-        for (let i = 0; i < 6; i++) {
-          code += characters.charAt(Math.floor(Math.random() * characters.length))
-        }
-
-        await set(roomRef, {
-          gameState: "lobby",
-          currentTurn: playerId,
-          matchCode: code,
-          hostId: playerId,
-          players: {
-            [playerId]: {
-              lives: 2,
-              isReady: false,
-              currentLevel: 1,
-              score: 0,
-              name: "Player 1",
-            },
-          },
-        })
-
-        setRoomId(newRoomId)
-        setMatchCode(code)
-        // Give explicit feedback or time for state to settle if needed, but usually instant
-        setScreen("lobby")
-      }
-    } catch (error) {
-      console.error("Error creating match:", error)
-      alert("Failed to create match. Please try again.")
-    } finally {
+    if (!rooms) {
+      alert("Match not found! Check the code and try again.")
       setIsLoading(false)
+      return
     }
-  }
 
-  const handleJoinMatch = async (code: string) => {
-    if (!playerId || !code) return
-    setIsLoading(true)
+    // Should only be one room with this code, but find first just in case
+    const [foundRoomId, roomData]: any = Object.entries(rooms)[0]
 
-    try {
-      // 1. Efficient Query: Only fetch rooms matching the code
-      const roomsRef = ref(database, "rooms")
-      const codeQuery = query(roomsRef, orderByChild("matchCode"), equalTo(code.toUpperCase()))
-      const snapshot = await get(codeQuery)
-      const rooms = snapshot.val()
+    if (roomData.gameState !== "lobby") {
+      alert("Match already started!")
+      setIsLoading(false)
+      return
+    }
 
-      if (!rooms) {
-        alert("Match not found! Check the code and try again.")
-        setIsLoading(false)
-        return
+    // 2. Transaction for Safe Joining (Prevents Race Conditions)
+    const roomPlayersRef = ref(database, `rooms/${foundRoomId}/players`)
+    await runTransaction(roomPlayersRef, (currentPlayers) => {
+      if (currentPlayers === null) return currentPlayers // Should exist
+
+      if (currentPlayers[playerId]) {
+        // Player already exists - allow rejoin
+        return currentPlayers
       }
 
-      // Should only be one room with this code, but find first just in case
-      const [foundRoomId, roomData]: any = Object.entries(rooms)[0]
-
-      if (roomData.gameState !== "lobby") {
-        alert("Match already started!")
-        setIsLoading(false)
-        return
-      }
-
-      // 2. Transaction for Safe Joining (Prevents Race Conditions)
-      const roomPlayersRef = ref(database, `rooms/${foundRoomId}/players`)
-      await runTransaction(roomPlayersRef, (currentPlayers) => {
-        if (currentPlayers === null) return currentPlayers // Should exist
-
-        if (currentPlayers[playerId]) {
-          // Player already exists - allow rejoin
-          return currentPlayers
+      if (Object.keys(currentPlayers).length < 2) {
+        // Room has space - add player
+        // IMPORTANT: Check if "Player 1" exists to name correctly, though logic dictates host is P1
+        // We'll just force name to "Player 2" for the joiner
+        currentPlayers[playerId] = {
+          lives: 2,
+          isReady: false,
+          currentLevel: 1,
+          score: 0,
+          name: "Player 2",
         }
-
-        if (Object.keys(currentPlayers).length < 2) {
-          // Room has space - add player
-          // IMPORTANT: Check if "Player 1" exists to name correctly, though logic dictates host is P1
-          // We'll just force name to "Player 2" for the joiner
-          currentPlayers[playerId] = {
-            lives: 2,
-            isReady: false,
-            currentLevel: 1,
-            score: 0,
-            name: "Player 2",
-          }
-          return currentPlayers
+        return currentPlayers
+      } else {
+        // Room full - abort transaction
+        return undefined // Abort
+      }
+    })
+      .then((result) => {
+        if (result.committed) {
+          setRoomId(foundRoomId)
+          setScreen("lobby")
         } else {
-          // Room full - abort transaction
-          return undefined // Abort
+          alert("Match is full!")
         }
       })
-        .then((result) => {
-          if (result.committed) {
-            setRoomId(foundRoomId)
-            setScreen("lobby")
-          } else {
-            alert("Match is full!")
-          }
-        })
-        .catch((err) => {
-          console.error("Transaction failed", err)
-          alert("Failed to join match.")
-        })
+      .catch((err) => {
+        console.error("Transaction failed", err)
+        alert("Failed to join match.")
+      })
 
-    } catch (error) {
-      console.error("Error joining match:", error)
-      alert("An error occurred while joining.")
-    } finally {
-      setIsLoading(false)
-    }
+  } catch (error) {
+    console.error("Error joining match:", error)
+    alert("An error occurred while joining.")
+  } finally {
+    setIsLoading(false)
   }
+}
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
-        <Loader2 className="w-12 h-12 animate-spin text-[#8b5cf6]" />
-      </div>
-    )
-  }
-
+if (isLoading) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {screen === "welcome" && (
-          <WelcomeScreen
-            onGetStarted={() => {
-              localStorage.setItem('speedry_welcomed', 'true')
-              setScreen('menu')
-            }}
-          />
-        )}
-        {screen === "menu" && (
-          <MenuScreen
-            onQuickPlay={() => {
-              // Quick Play: Random level 1-5
-              const randomLevel = Math.floor(Math.random() * 5) + 1
-              handleStartGame(randomLevel)
-            }}
-            onContinue={() => handleStartGame(bestLevel)}
-            onLevelSelect={() => setScreen("levelSelect")}
-            onMultiplayer={handleMultiplayer}
-            onCreateMatch={handleCreateMatch}
-            bestLevel={bestLevel}
-            xp={xp}
-            onOpenStore={() => setShowGlobalStore(true)}
-          />
-        )}
-
-        {screen === "joinMatch" && <JoinMatchScreen onJoinMatch={handleJoinMatch} onBack={() => setScreen("menu")} />}
-        {screen === "levelSelect" && (
-          <LevelSelectScreen bestLevel={bestLevel} onSelectLevel={handleStartGame} onBack={() => setScreen("menu")} />
-        )}
-        {screen === "lobby" && roomId && (
-          <LobbyScreen
-            roomId={roomId}
-            playerId={playerId}
-            roomData={roomData}
-            setRoomData={setRoomData}
-            onStartGame={() => setScreen("multiplayerGame")}
-            onBack={() => setScreen("menu")}
-          />
-        )}
-        {screen === "multiplayerGame" && roomId && roomData && (
-          <MultiplayerGameScreen
-            roomId={roomId}
-            playerId={playerId}
-            roomData={roomData}
-            setRoomData={setRoomData}
-            onGameEnd={() => setScreen("menu")}
-            xp={xp}
-            onXpChange={setXp}
-          />
-        )}
-        {screen === "game" && (
-          <GameScreen
-            onBack={() => setScreen("levelSelect")}
-            onLevelUp={handleLevelSwitch}
-            onLevelUnlock={handleLevelComplete} // Pass the save-only function
-            onWarp={handleWarp}
-            xp={xp}
-            onXpChange={setXp}
-            level={level}
-            onGameOver={() => setScreen("menu")}
-            playerId={playerId}
-            onOpenStore={() => setShowGlobalStore(true)}
-          />
-        )}
-        {screen === "gameOver" && (
-          <GameOverScreen level={level} onRetry={() => setScreen("game")} onMenu={() => setScreen("menu")} />
-        )}
-        {screen === "victory" && (
-          <VictoryScreen
-            level={level}
-            onNextLevel={() => {
-              setLevel(level + 1)
-              setScreen("game")
-            }}
-            onMenu={() => setScreen("menu")}
-          />
-        )}
-      </div>
-      <InstallPrompt />
-
-      {/* GLOBAL XP STORE MODAL */}
-      {showGlobalStore && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm animate-[scaleIn_0.2s_ease-out] border-4 border-orange-100">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <div className="bg-orange-100 p-2 rounded-xl">
-                  <Zap className="w-6 h-6 text-orange-500 fill-orange-500" />
-                </div>
-                <div>
-                  <h3 className="text-[#1e293b] text-xl font-black">GET XP</h3>
-                  <p className="text-slate-400 text-xs font-bold">INSTANT BOOST</p>
-                </div>
-              </div>
-              <button onClick={() => setShowGlobalStore(false)} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
-                <XCircle className="h-6 w-6 text-slate-400 hover:text-slate-600" />
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              {/* 5 GHS */}
-              <div className="group bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(5)}>
-                <div className="flex items-center gap-3">
-                  <div className="bg-slate-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-slate-500">S</div>
-                  <div>
-                    <div className="font-black text-slate-700 text-lg">250 XP</div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tiny Boost</div>
-                  </div>
-                </div>
-                <button className="bg-slate-800 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg group-hover:scale-105 transition-transform">5 GHS</button>
-              </div>
-
-              {/* 10 GHS */}
-              <div className="group bg-orange-50 hover:bg-orange-100 p-3 rounded-2xl border-2 border-orange-100 hover:border-orange-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(10)}>
-                <div className="flex items-center gap-3">
-                  <div className="bg-orange-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-orange-600">M</div>
-                  <div>
-                    <div className="font-black text-orange-600 text-lg">500 XP</div>
-                    <div className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Starter</div>
-                  </div>
-                </div>
-                <button className="bg-orange-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform">10 GHS</button>
-              </div>
-
-              {/* 20 GHS */}
-              <div className="group bg-blue-50 hover:bg-blue-100 p-3 rounded-2xl border-2 border-blue-100 hover:border-blue-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(20)}>
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-blue-600">L</div>
-                  <div>
-                    <div className="font-black text-blue-600 text-lg">1200 XP</div>
-                    <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Value</div>
-                  </div>
-                </div>
-                <button className="bg-blue-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">20 GHS</button>
-              </div>
-
-              {/* 30 GHS */}
-              <div className="group bg-purple-50 hover:bg-purple-100 p-3 rounded-2xl border-2 border-purple-100 hover:border-purple-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => handlePaystackPayment(30)}>
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-purple-600">X</div>
-                  <div>
-                    <div className="font-black text-purple-600 text-lg">1800 XP</div>
-                    <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Pro</div>
-                  </div>
-                </div>
-                <button className="bg-purple-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-purple-500/30 group-hover:scale-105 transition-transform">30 GHS</button>
-              </div>
-
-              {/* 40 GHS */}
-              <div className="group bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl border-2 border-indigo-400 flex justify-between items-center transform hover:scale-[1.02] transition-all cursor-pointer shadow-xl relative overflow-hidden" onClick={() => handlePaystackPayment(40)}>
-                <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
-                <div className="flex items-center gap-3 relative z-10">
-                  <div className="bg-white/20 w-10 h-10 rounded-xl flex items-center justify-center font-black text-white">★</div>
-                  <div>
-                    <div className="font-black text-white text-lg">2500 XP</div>
-                    <div className="text-[10px] text-indigo-100 font-bold uppercase tracking-wider">Best Deal</div>
-                  </div>
-                </div>
-                <button className="bg-white text-indigo-600 px-4 py-2 rounded-xl font-black text-sm shadow-lg relative z-10">40 GHS</button>
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1">
-                <Clock className="w-3 h-3" /> SECURE CHECKOUT • PAYSTACK / MOMO
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <Loader2 className="w-12 h-12 animate-spin text-[#8b5cf6]" />
     </div>
   )
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
+    <div className="w-full max-w-md">
+      {screen === "welcome" && (
+        <WelcomeScreen
+          onGetStarted={() => {
+            localStorage.setItem('speedry_welcomed', 'true')
+            setScreen('menu')
+          }}
+        />
+      )}
+      {screen === "menu" && (
+        <MenuScreen
+          onQuickPlay={() => {
+            // Quick Play: Random level 1-5
+            const randomLevel = Math.floor(Math.random() * 5) + 1
+            handleStartGame(randomLevel)
+          }}
+          onContinue={() => handleStartGame(bestLevel)}
+          onLevelSelect={() => setScreen("levelSelect")}
+          onMultiplayer={handleMultiplayer}
+          onCreateMatch={handleCreateMatch}
+          onJoinMatch={() => setScreen("joinMatch")}
+          bestLevel={bestLevel}
+          xp={xp}
+          onOpenStore={() => setShowGlobalStore(true)}
+          onOpenHelp={() => {
+            setHelpTab("guide")
+            setShowHelp(true)
+          }}
+        />
+      )}
+
+      {screen === "joinMatch" && <JoinMatchScreen onJoinMatch={handleJoinMatch} onBack={() => setScreen("menu")} />}
+      {screen === "levelSelect" && (
+        <LevelSelectScreen bestLevel={bestLevel} onSelectLevel={handleStartGame} onBack={() => setScreen("menu")} />
+      )}
+      {screen === "lobby" && roomId && (
+        <LobbyScreen
+          roomId={roomId}
+          playerId={playerId}
+          roomData={roomData}
+          setRoomData={setRoomData}
+          onStartGame={() => setScreen("multiplayerGame")}
+          onBack={() => setScreen("menu")}
+        />
+      )}
+      {screen === "multiplayerGame" && roomId && roomData && (
+        <MultiplayerGameScreen
+          roomId={roomId}
+          playerId={playerId}
+          roomData={roomData}
+          setRoomData={setRoomData}
+          onGameEnd={() => setScreen("menu")}
+          xp={xp}
+          onXpChange={setXp}
+        />
+      )}
+      {screen === "game" && (
+        <GameScreen
+          onBack={() => setScreen("levelSelect")}
+          onLevelUp={handleLevelSwitch}
+          onLevelUnlock={handleLevelComplete} // Pass the save-only function
+          onWarp={handleWarp}
+          xp={xp}
+          onXpChange={setXp}
+          level={level}
+          onGameOver={() => setScreen("menu")}
+          playerId={playerId}
+          onOpenStore={() => setShowGlobalStore(true)}
+        />
+      )}
+      {screen === "gameOver" && (
+        <GameOverScreen level={level} onRetry={() => setScreen("game")} onMenu={() => setScreen("menu")} />
+      )}
+      {screen === "victory" && (
+        <VictoryScreen
+          level={level}
+          onNextLevel={() => {
+            setLevel(level + 1)
+            setScreen("game")
+          }}
+          onMenu={() => setScreen("menu")}
+        />
+      )}
+    </div>
+    <InstallPrompt />
+
+    {/* GLOBAL XP STORE MODAL */}
+    {showGlobalStore && (
+      <GlobalStoreModal
+        isOpen={showGlobalStore}
+        onClose={() => setShowGlobalStore(false)}
+        onPurchase={handlePaystackPayment}
+      />
+    )}
+
+    {/* GLOBAL HELP MODAL */}
+    <HelpModal
+      isOpen={showHelp}
+      onClose={() => setShowHelp(false)}
+      activeTab={helpTab}
+      onTabChange={setHelpTab}
+    />
+  </div>
+)
 }
 
 function InstallPrompt() {
@@ -601,7 +548,7 @@ function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
 
       {/* Header */}
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-black leading-none tracking-tight mb-2">
+        <h1 className="text-5xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
@@ -671,6 +618,7 @@ function MenuScreen({
   bestLevel,
   xp,
   onOpenStore,
+  onOpenHelp,
 }: {
   onQuickPlay: () => void
   onContinue: () => void
@@ -679,17 +627,25 @@ function MenuScreen({
   onCreateMatch: () => void
   onJoinMatch: () => void
   onOpenStore: () => void
+  onOpenHelp: () => void
   bestLevel: number
   xp: number
 }) {
   return (
     <div className="flex flex-col items-center justify-center space-y-8 py-12">
-      <div className="text-center">
+      <div className="text-center relative">
         <h1 className="text-3xl font-black leading-none tracking-tight">
           <span className="text-[#1e293b]">SPEE</span>
           <span className="text-[#8b5cf6]">DRY</span>
         </h1>
         <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
+
+        <button
+          onClick={onOpenHelp}
+          className="absolute -right-8 top-1/2 -translate-y-1/2 p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-[#8b5cf6] transition-colors"
+        >
+          <HelpCircle className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="w-full max-w-xs">
@@ -2559,6 +2515,162 @@ function ResetConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onC
             YES, RESET EVERYTHING
           </button>
           <button onClick={onCancel} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HelpModal({
+  isOpen,
+  onClose,
+  activeTab,
+  onTabChange
+}: {
+  isOpen: boolean
+  onClose: () => void
+  activeTab: string
+  onTabChange: (tab: string) => void
+}) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden h-[80vh] flex flex-col animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
+
+        {/* Header */}
+        <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-[#8b5cf6]" />
+            GAME GUIDE
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+            <XCircle className="w-6 h-6 text-slate-400" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex p-2 gap-2 bg-slate-50 border-b border-slate-100">
+          <button
+            onClick={() => onTabChange("guide")}
+            className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "guide" ? "bg-[#8b5cf6] text-white shadow-md" : "text-slate-500 hover:bg-slate-200"}`}
+          >
+            Guide
+          </button>
+          <button
+            onClick={() => onTabChange("secrets")}
+            className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "secrets" ? "bg-amber-500 text-white shadow-md" : "text-slate-500 hover:bg-slate-200"}`}
+          >
+            Secrets
+          </button>
+          <button
+            onClick={() => onTabChange("updates")}
+            className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "updates" ? "bg-emerald-500 text-white shadow-md" : "text-slate-500 hover:bg-slate-200"}`}
+          >
+            Updates
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+          {activeTab === "guide" && (
+            <div className="space-y-6">
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <h3 className="font-black text-slate-800 mb-2 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                  Speed & XP
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Match pairs quickly to build your <span className="font-bold text-[#8b5cf6]">Streak</span>.
+                  High streaks multiply your XP! Earn XP to level up and unlock rewards.
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <h3 className="font-black text-slate-800 mb-2 flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+                  Fire Mode
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Every 10 Levels, enter <span className="font-bold text-orange-500">FIRE MODE</span>.
+                  The timer is cut in half, but XP is DOUBLED. Survive to keep your streak!
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <h3 className="font-black text-slate-800 mb-2 flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-blue-500" />
+                  Hints
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Stuck? Use a <span className="font-bold text-blue-500">Hint (10 XP)</span> to peek, or a
+                  <span className="font-bold text-pink-500"> Super Hint (50 XP)</span> to solve 4 cards instantly.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "secrets" && (
+            <div className="space-y-4">
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                <p className="text-amber-800 text-sm font-semibold italic text-center">
+                  "Rumors whisper of codes that break the rules..."
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
+                <h3 className="font-bold text-slate-800 text-sm mb-1">🔥 The Hot Hand</h3>
+                <p className="text-slate-500 text-xs">
+                  Type the element of heat to unlock unlimited power...
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
+                <h3 className="font-bold text-slate-800 text-sm mb-1">🔄 The Great Reset</h3>
+                <p className="text-slate-500 text-xs">
+                  Wish to start over? Type **RESETGAME** to wipe your slate clean.
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
+                <h3 className="font-bold text-slate-800 text-sm mb-1">👑 The King's Warp</h3>
+                <p className="text-slate-500 text-xs">
+                  Only the worthy can skip the grind... (Hint: Level 20 Warp exists)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "updates" && (
+            <div className="space-y-6">
+              <div className="relative pl-4 border-l-2 border-emerald-500">
+                <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <h3 className="font-black text-slate-800 text-lg">v2.1 - The Help Update</h3>
+                <p className="text-emerald-600 text-xs font-bold mb-2">Current Version</p>
+                <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
+                  <li><span className="font-bold">Global Help Center</span>: You're looking at it!</li>
+                  <li><span className="font-bold">UI Polish</span>: Cleaner Carousel & Menus.</li>
+                  <li><span className="font-bold">XP Store</span>: Now accessible from home screen.</li>
+                  <li><span className="font-bold">Cheats</span>: Updated hints logic.</li>
+                </ul>
+              </div>
+
+              <div className="relative pl-4 border-l-2 border-slate-300">
+                <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-slate-300" />
+                <h3 className="font-bold text-slate-500 text-base">v2.0 - Global Reset</h3>
+                <p className="text-slate-400 text-xs font-semibold mb-2">Previous</p>
+                <ul className="list-disc list-inside text-sm text-slate-500 space-y-1">
+                  <li>Economy Reset & Rebalance</li>
+                  <li>Looping Theme System (1-30)</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
+          <p className="text-xs text-slate-400 font-semibold">Speedry Conquest v2.1</p>
         </div>
       </div>
     </div>
