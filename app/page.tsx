@@ -717,8 +717,8 @@ function GameScreen({
   const activateCheat = useCallback((cheatCode: string = "FIREMODE") => {
     if (cheatCode === "FIREMODE") {
       // 1. Always give XP (Spammable)
-      onXpChange(xp + 1000)
-      setXpPopupAmount(1000)
+      onXpChange(xp + 800)
+      setXpPopupAmount(800)
       setShowXpPopup(true)
       setTimeout(() => setShowXpPopup(false), 1500)
 
@@ -733,7 +733,7 @@ function GameScreen({
         onWarp(20)
         localStorage.setItem("speedry_last_warp", now.toString())
         localStorage.setItem("speedry_warp_attempts", "0") // Reset attempts
-        toast.success("ðŸ”¥ FIRE MODE ACTIVATED: Level 20 & +1000 XP!", { duration: 3000 })
+        toast.success("🔥 FIRE MODE ACTIVATED: Level 20 & +800 XP!", { duration: 3000 })
       } else {
         // COOLDOWN ACTIVE
         const newAttempts = attempts + 1
@@ -923,7 +923,8 @@ function GameScreen({
 
       setTimeout(() => {
         setShowXpPopup(false)
-        onLevelUp(level + 1)
+        // Don't auto-advance to next level - just mark as complete
+        setLevelCompleted(true)
       }, 1500)
     }
   }, [cards, levelCompleted])
@@ -1251,35 +1252,14 @@ function GameScreen({
         )}
 
         {showTimedOut && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-300">
-              <div className="text-center">
-                <div className="mb-4 flex justify-center">
-                  <Clock className="w-20 h-20 text-orange-500 animate-pulse" />
-                </div>
-                <h2 className="text-3xl font-black text-slate-800 mb-2">TIME'S UP!</h2>
-                <p className="text-slate-600 font-semibold mb-6">You ran out of time. Try again?</p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleRetryLevel}
-                    className="flex-1 bg-gradient-to-r from-[#0066ff] to-[#0052cc] hover:from-[#0052cc] hover:to-[#0041a3] text-white font-black text-lg py-3 rounded-xl transition-all"
-                  >
-                    RETRY LEVEL
+          QUIT
                   </button>
-                  <button
-                    onClick={() => {
-                      setShowTimedOut(false)
-                      onBack()
-                    }}
-                    className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all"
-                  >
-                    QUIT
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+    </div>
+              </div >
+            </div >
+          </div >
+        )
+}
 
         <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between">
@@ -1376,8 +1356,8 @@ function GameScreen({
         <div className="mt-12 pt-8">
           <p className="text-[#64748b] text-sm font-semibold text-center">Developer Rebry Creatives</p>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }
 
