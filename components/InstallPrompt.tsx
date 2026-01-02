@@ -61,6 +61,7 @@ export function InstallPrompt() {
             <div className="bg-white/90 backdrop-blur-md border border-slate-200 p-4 rounded-2xl shadow-2xl flex flex-col gap-3 relative max-w-sm mx-auto">
                 <button
                     onClick={() => setIsVisible(false)}
+                    title="Close Install Prompt"
                     className="absolute -top-2 -right-2 bg-slate-100 rounded-full p-1 border shadow-sm hover:bg-slate-200"
                 >
                     <X className="w-4 h-4 text-slate-500" />
@@ -90,6 +91,7 @@ export function InstallPrompt() {
                 ) : (
                     <button
                         onClick={handleInstallClick}
+                        title="Install Speedry App"
                         className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black py-3 rounded-xl shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
                     >
                         INSTALL APP

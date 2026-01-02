@@ -1835,7 +1835,7 @@ function MultiplayerGameScreen({
 
   return (
     <MultiplayerGameplay
-      level={roomData.players[playerId].currentLevel}
+      level={roomData.players?.[playerId]?.currentLevel || 1}
       tournament={roomData.tournament}
       lives={roomData.players[playerId].lives}
       onLevelComplete={async (newLevel) => {
