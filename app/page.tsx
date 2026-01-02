@@ -2922,15 +2922,15 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
         </div>
 
         {/* Text Section */}
-        <div className="flex flex-col justify-center items-start">
+        <div className="flex flex-col justify-center items-start whitespace-nowrap">
           {user ? (
             <>
-              <span className="text-[10px] font-bold text-slate-400 leading-none mb-0.5">SYNC ACTIVE</span>
+              <span className="text-[9px] font-bold text-slate-400 leading-none mb-0.5 uppercase tracking-wide">Sync Active</span>
               <span className="text-sm font-black text-slate-700 leading-none">{user.displayName?.split(' ')[0]}</span>
             </>
           ) : (
             <button onClick={onLogin} className="text-left">
-              <span className="text-[10px] font-bold text-indigo-500 leading-none mb-0.5">CLOUDSAVE</span>
+              <span className="text-[9px] font-bold text-indigo-500 leading-none mb-0.5 uppercase tracking-wide">Cloud Save</span>
               <span className="text-sm font-black text-slate-800 leading-none block">Tap to Sign In</span>
             </button>
           )}
