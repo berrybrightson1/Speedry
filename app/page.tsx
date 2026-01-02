@@ -1077,12 +1077,20 @@ function GameScreen({
   });
 
   // MAPPED STATE (To preserve UI)
-  const cards = state.cards;
   const flippedIndices = state.flippedIndices;
   const matchedIds = state.matchedIds;
   const timeLeft = state.timeLeft;
   const lives = state.livesLeft;
   const streak = state.streak;
+
+  // Crucial: Map Engine State to UI Card format
+  // The Engine stores "flippedIndices" separately, but UI expects card.flipped
+  const cards = state.cards.map((card, index) => ({
+    ...card,
+    flipped: state.flippedIndices.includes(index) || state.matchedIds.includes(card.id),
+    matched: state.matchedIds.includes(card.id)
+  }));
+
   console.log("Mapped State -> Phase:", state.phase, "Cards:", cards.length, "Time:", timeLeft, "Live:", lives);
 
   /* Duplicate gridCols removed */
