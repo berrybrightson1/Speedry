@@ -1166,6 +1166,40 @@ function GameScreen({
     `}</style>
   ) : null
 
+  const handlePaystackPayment = (amountGHS: number) => {
+    // @ts-ignore
+    if (typeof window.PaystackPop === 'undefined') {
+      toast.error("Payment system loading... ensure internet connection.")
+      return
+    }
+
+    // @ts-ignore
+    const handler = window.PaystackPop.setup({
+      key: 'pk_live_689412f7cc3058bf05f989dec1d3d370da60ccd1',
+      email: `${playerId}@speedry.net`,
+      amount: amountGHS * 100, // Convert to kobo/pesewas
+      currency: 'GHS',
+      channels: ['mobile_money', 'card'],
+      callback: (response: any) => {
+        let xpReward = 0
+        if (amountGHS === 5) xpReward = 250
+        else if (amountGHS === 10) xpReward = 500
+        else if (amountGHS === 20) xpReward = 1200
+        else if (amountGHS === 30) xpReward = 1800
+        else if (amountGHS === 40) xpReward = 2500
+
+        onXpChange(xp + xpReward)
+        setXpPopupAmount(xpReward)
+        setShowXpPopup(true)
+        toast.success(`Payment Verified! +${xpReward} XP Added.`)
+      },
+      onClose: () => {
+        toast.info("Transaction cancelled")
+      }
+    })
+    handler.openIframe()
+  }
+
   return (
     <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `bg-gradient-to-b ${currentTheme.bgGradient} mobile-full-screen`}`}>
       {fireAnimation}
