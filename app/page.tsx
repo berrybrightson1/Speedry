@@ -1113,8 +1113,8 @@ function GameScreen({
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
             +{xpPopupAmount} XP!
           </div>
-
-      {showPreview && (
+        )}
+        {showPreview && (
           <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
             <div className="text-center">
               <h2 className="text-5xl font-black text-white/50 mb-2 tracking-widest uppercase drop-shadow-lg opacity-80">MEMORIZE</h2>
