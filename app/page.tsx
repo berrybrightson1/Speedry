@@ -2685,3 +2685,105 @@ function HelpModal({
     </div>
   )
 }
+
+function GlobalStoreModal({
+  isOpen,
+  onClose,
+  onPurchase
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onPurchase: (amount: number) => void
+}) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200 border-4 border-orange-100">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-xl">
+              <Zap className="w-6 h-6 text-orange-500 fill-orange-500" />
+            </div>
+            <div>
+              <h3 className="text-[#1e293b] text-xl font-black">GET XP</h3>
+              <p className="text-slate-400 text-xs font-bold">INSTANT BOOST</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
+            <XCircle className="h-6 w-6 text-slate-400 hover:text-slate-600" />
+          </button>
+        </div>
+
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          {/* 5 GHS */}
+          <div className="group bg-slate-50 hover:bg-slate-100 p-3 rounded-2xl border-2 border-slate-100 hover:border-slate-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => onPurchase(5)}>
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-slate-500">S</div>
+              <div>
+                <div className="font-black text-slate-700 text-lg">250 XP</div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tiny Boost</div>
+              </div>
+            </div>
+            <button className="bg-slate-800 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg group-hover:scale-105 transition-transform">5 GHS</button>
+          </div>
+
+          {/* 10 GHS */}
+          <div className="group bg-orange-50 hover:bg-orange-100 p-3 rounded-2xl border-2 border-orange-100 hover:border-orange-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => onPurchase(10)}>
+            <div className="flex items-center gap-3">
+              <div className="bg-orange-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-orange-600">M</div>
+              <div>
+                <div className="font-black text-orange-600 text-lg">500 XP</div>
+                <div className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Starter</div>
+              </div>
+            </div>
+            <button className="bg-orange-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-orange-500/30 group-hover:scale-105 transition-transform">10 GHS</button>
+          </div>
+
+          {/* 20 GHS */}
+          <div className="group bg-blue-50 hover:bg-blue-100 p-3 rounded-2xl border-2 border-blue-100 hover:border-blue-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => onPurchase(20)}>
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-blue-600">L</div>
+              <div>
+                <div className="font-black text-blue-600 text-lg">1200 XP</div>
+                <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Value</div>
+              </div>
+            </div>
+            <button className="bg-blue-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">20 GHS</button>
+          </div>
+
+          {/* 30 GHS */}
+          <div className="group bg-purple-50 hover:bg-purple-100 p-3 rounded-2xl border-2 border-purple-100 hover:border-purple-200 flex justify-between items-center transition-all cursor-pointer" onClick={() => onPurchase(30)}>
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-200 w-10 h-10 rounded-xl flex items-center justify-center font-black text-purple-600">X</div>
+              <div>
+                <div className="font-black text-purple-600 text-lg">1800 XP</div>
+                <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Pro</div>
+              </div>
+            </div>
+            <button className="bg-purple-500 text-white px-4 py-2 rounded-xl font-black text-sm shadow-lg shadow-purple-500/30 group-hover:scale-105 transition-transform">30 GHS</button>
+          </div>
+
+          {/* 40 GHS */}
+          <div className="group bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl border-2 border-indigo-400 flex justify-between items-center transform hover:scale-[1.02] transition-all cursor-pointer shadow-xl relative overflow-hidden" onClick={() => onPurchase(40)}>
+            <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="bg-white/20 w-10 h-10 rounded-xl flex items-center justify-center font-black text-white">★</div>
+              <div>
+                <div className="font-black text-white text-lg">2500 XP</div>
+                <div className="text-[10px] text-indigo-100 font-bold uppercase tracking-wider">Best Deal</div>
+              </div>
+            </div>
+            <button className="bg-white text-indigo-600 px-4 py-2 rounded-xl font-black text-sm shadow-lg relative z-10">40 GHS</button>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1">
+            <Clock className="w-3 h-3" /> SECURE CHECKOUT • PAYSTACK / MOMO
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
