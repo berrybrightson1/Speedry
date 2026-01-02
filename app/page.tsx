@@ -758,7 +758,6 @@ function GameScreen({
   const [lives, setLives] = useState(3)
   const [hintTimeLeft, setHintTimeLeft] = useState<number | null>(null)
   const [hintsUsed, setHintsUsed] = useState(0) // Track hints for penalty
-  const [hintsUsed, setHintsUsed] = useState(0) // Track hints for penalty
   const [showXpPopup, setShowXpPopup] = useState(false)
   const [xpPopupAmount, setXpPopupAmount] = useState(0)
   const [showEndGame, setShowEndGame] = useState(false)
@@ -973,20 +972,6 @@ function GameScreen({
     if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
       setLevelCompleted(true)
       onLevelUnlock(level + 1) // Save progress immediately upon completion
-
-      // Calculate XP based on performance
-      const baseXp = 10
-      const streakBonus = streak >= 3 ? 5 : 0
-      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
-      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
-
-      // Penalty: If hints used, forfeit streak and speed bonuses
-      const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
-
-      const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
-      const streakBonus = streak >= 3 ? 5 : 0 // Bonus for high streak
-      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0 // Bonus for fast completion
-      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0 // XP boost at level 4+
 
       // Calculate XP based on performance
       const baseXp = 10
