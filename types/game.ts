@@ -90,4 +90,7 @@ export interface GameSessionState {
     cards: any[];       // Definition depends on Card component
     flippedIndices: number[];
     matchedIds: number[];
+
+    // Config Snapshot (For Reducer access)
+    config: LevelConfig;
 }

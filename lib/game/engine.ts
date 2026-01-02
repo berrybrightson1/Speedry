@@ -17,7 +17,8 @@ export const createInitialState = (level: LevelDef): GameSessionState => {
         streak: 0,
         cards: [], // Populated by Hook
         flippedIndices: [],
-        matchedIds: []
+        matchedIds: [],
+        config: level.config // Store config in state
     };
 };
 
@@ -40,7 +41,7 @@ type Action =
     | { type: 'LEVEL_COMPLETE' }
     | { type: 'GAME_OVER' };
 
-export const gameReducer = (state: GameSessionState, action: Action, levelConfig: LevelDef['config']): GameSessionState => {
+export const gameReducer = (state: GameSessionState, action: Action): GameSessionState => {
     switch (action.type) {
         case 'INIT_SESSION':
             return { ...state, cards: action.payload.cards };
@@ -60,7 +61,7 @@ export const gameReducer = (state: GameSessionState, action: Action, levelConfig
             if (newTime <= 0) {
                 if (state.phase === 'PREVIEW') {
                     // Auto-switch to playing if preview runs out (handled by effect usually, but strict logic here)
-                    return { ...state, phase: 'PLAYING', timeLeft: levelConfig.timeLimit };
+                    return { ...state, phase: 'PLAYING', timeLeft: state.config.timeLimit };
                 } else {
                     return { ...state, phase: 'DEFEAT', timeLeft: 0 };
                 }
@@ -87,7 +88,7 @@ export const gameReducer = (state: GameSessionState, action: Action, levelConfig
             // CHECK WIN CONDITION
             // Note: We check if ALL cards are matched.
             // We rely on the hook to pass correct indices, or we calculate based on config.
-            const totalCards = levelConfig.pairCount * 2;
+            const totalCards = state.config.pairCount * 2;
             const isWin = newMatched.length >= totalCards;
 
             if (isWin) {
