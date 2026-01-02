@@ -958,7 +958,7 @@ const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSiz
   hintActive: boolean,
   gridSize?: number
 }) => {
-  const [parent] = useAutoAnimate()
+  // Removed useAutoAnimate for debugging blank screen
 
   // Create a safe display list that maintains indexes but hides matched
   // Actually, for Masonry we want to REMOVE them from DOM. 
@@ -966,7 +966,7 @@ const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSiz
   // So we map the original cards, but return null for matched.
 
   return (
-    <div ref={parent}>
+    <div>
       {/* Game Board */}
       {cards.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[300px] text-slate-500 animate-pulse">
