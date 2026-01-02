@@ -313,13 +313,8 @@ export default function SpeedryConquest() {
         {screen === "game" && (
           <GameScreen
             onBack={() => setScreen("menu")}
-            onLevelUp={(newLevel) => {
-              const newBestLevel = Math.max(newLevel, bestLevel)
-              setBestLevel(newBestLevel)
-              localStorage.setItem("speedry_best_level", newBestLevel.toString())
-              setLevel(newLevel)
-              setScreen("game")
-            }}
+            onLevelUp={handleLevelComplete}
+            onWarp={handleWarp}
             xp={xp}
             onXpChange={setXp}
             level={level} // Pass level to GameScreen
@@ -644,17 +639,19 @@ CardGrid.displayName = "CardGrid"
 function GameScreen({
   onBack,
   onLevelUp, // Added prop
+  onWarp, // Added prop
   xp, // Added prop
   onXpChange, // Added prop
   level, // Added prop
   onGameOver, // Added prop
 }: {
   onBack: () => void
-  onLevelUp: (newLevel: number) => void // Added prop type
-  xp: number // Added prop type
-  onXpChange: (newXp: number) => void // Added prop type
-  level: number // Added prop type
-  onGameOver: () => void // Added prop type
+  onLevelUp: (newLevel: number) => void
+  onWarp: (targetLevel: number) => void
+  xp: number
+  onXpChange: (newXp: number) => void
+  level: number
+  onGameOver: () => void
 }) {
   // Formula: Pairs = Level + 1. 
   // Refined Time Logic: 
@@ -719,7 +716,7 @@ function GameScreen({
 
       if (!lastWarp || now - Number(lastWarp) > COOLDOWN) {
         // SUCCESS: Warp to Level 20
-        onLevelUp(20)
+        onWarp(20)
         localStorage.setItem("speedry_last_warp", now.toString())
         localStorage.setItem("speedry_warp_attempts", "0") // Reset attempts
         toast.success("🔥 FIRE MODE ACTIVATED: Level 20 & +1000 XP!", { duration: 3000 })
@@ -746,7 +743,7 @@ function GameScreen({
     }
     else if (cheatCode === "MASTERRESET") {
       // MASTER RESET: WIPE EVERYTHING
-      onLevelUp(1)
+      onWarp(1)
       onXpChange(0)
       setStreak(0)
       setLives(3)
@@ -761,7 +758,7 @@ function GameScreen({
         style: { background: '#1e293b', color: '#10b981', fontWeight: 'bold' }
       })
     }
-  }, [xp, onXpChange, onLevelUp])
+  }, [xp, onXpChange, onLevelUp, onWarp])
 
   const handleResetConfirm = () => {
     const lastReset = localStorage.getItem("speedry_last_reset")
@@ -1112,14 +1109,21 @@ const fireAnimation = isFireMode ? (
 ) : null
 
 return (
-  <div className={`min-h-screen flex flex-col items-center justify-center md:p-4 overflow-y-auto duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300"}`}>
+  <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300 mobile-full-screen"}`}>
     {fireAnimation}
-    <div className={`w-full md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
+    <style jsx global>{`
+        /* Special Override specifically for mobile full bleed */
+        @media (max-width: 768px) {
+          .mobile-full-screen {
+             background: none !important; /* Let inner container handle bg */
+          }
+        }
+      `}</style>
+    <div className={`w-full h-full md:h-auto md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 flex flex-col ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
       {showXpPopup && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
           +{xpPopupAmount} XP!
         </div>
-      )}
 
       {showPreview && (
         <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
