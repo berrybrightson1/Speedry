@@ -94,7 +94,34 @@ export default function SpeedryConquest() {
   const [matchCode, setMatchCode] = useState<string>("")
 
   useEffect(() => {
-    // Check local storage and initialize state
+    // GLOBAL RESET CHECK (Version Control)
+    const CURRENT_VERSION = "2.0_GLOBAL_RESET" // Change this string to force a reset for everyone
+    const storedVersion = localStorage.getItem("speedry_data_version")
+
+    if (storedVersion !== CURRENT_VERSION) {
+      // Version mismatch? WIPE EVERYTHING.
+      console.log("New version detected. Resetting data...")
+      localStorage.removeItem("speedry_xp")
+      localStorage.removeItem("speedry_level")
+      localStorage.removeItem("speedry_best_level")
+      localStorage.removeItem("speedry_welcomed")
+      localStorage.removeItem("speedry_last_reset")
+      localStorage.removeItem("speedry_last_warp")
+      localStorage.removeItem("speedry_warp_attempts")
+
+      // Set new version
+      localStorage.setItem("speedry_data_version", CURRENT_VERSION)
+
+      // Reset State
+      setXp(0)
+      setLevel(1)
+      setBestLevel(1)
+      setIsLoading(false)
+      toast.info("Update installed! Game progress has been reset for the new season.")
+      return
+    }
+
+    // Standard Loading
     const hasSeenWelcome = localStorage.getItem('speedry_welcomed')
     const savedBestLevel = localStorage.getItem("speedry_best_level")
     const storedPlayerId = localStorage.getItem("speedry_player_id")
@@ -845,8 +872,13 @@ function GameScreen({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isPaused, activateCheat])
 
+  // Determine Theme based on Loop
+  const themeIndex = Math.floor(((level - 1) % 30) / 10)
+  const currentTheme = THEMES[themeIndex] || THEMES[0]
+
   useEffect(() => {
-    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+    // Select icons from theme
+    const icons = currentTheme.icons
     const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
     const cardPairs = [...selectedIcons, ...selectedIcons]
       .sort(() => Math.random() - 0.5)
@@ -943,7 +975,15 @@ function GameScreen({
       onLevelUnlock(level + 1) // Save progress immediately upon completion
 
       // Calculate XP based on performance
-      const baseXp = 10 // Base XP for completing level
+      const baseXp = 10
+      const streakBonus = streak >= 3 ? 5 : 0
+      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
+      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
+
+      // Penalty: If hints used, forfeit streak and speed bonuses
+      const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
+
+      const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
       const streakBonus = streak >= 3 ? 5 : 0 // Bonus for high streak
       const speedBonus = timeLeft > initialTime / 2 ? 5 : 0 // Bonus for fast completion
       const levelBonus = level >= 4 ? Math.floor(level / 2) : 0 // XP boost at level 4+
@@ -1112,7 +1152,7 @@ function GameScreen({
     setPreviewTimeLeft(4)
 
     // Regenerate cards and start with them flipped for preview
-    const icons = ['fa-dog', 'fa-cat', 'fa-crow', 'fa-car-side', 'fa-truck-pickup', 'fa-motorcycle', 'fa-cube', 'fa-gem']
+    const icons = currentTheme.icons
     const selectedIcons = Array.from({ length: pairsCount }, (_, i) => icons[i % icons.length])
     const cardPairs = [...selectedIcons, ...selectedIcons]
       .sort(() => Math.random() - 0.5)
@@ -1142,7 +1182,7 @@ function GameScreen({
   ) : null
 
   return (
-    <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : "bg-gradient-to-b from-slate-200 to-slate-300 mobile-full-screen"}`}>
+    <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `bg-gradient-to-b ${currentTheme.bgGradient} mobile-full-screen`}`}>
       {fireAnimation}
       <style jsx global>{`
         /* Special Override specifically for mobile full bleed */
@@ -1226,7 +1266,7 @@ function GameScreen({
                     <div className="font-black text-orange-600 text-lg">500 XP</div>
                     <div className="text-xs text-orange-500 font-bold">Starter Pack</div>
                   </div>
-                  <div className="bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm">10 GHS</div>
+                  <button onClick={() => handlePaystackPayment(10)} className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">10 GHS</button>
                 </div>
 
                 <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 rounded-xl border border-indigo-200 flex justify-between items-center">
@@ -1234,17 +1274,22 @@ function GameScreen({
                     <div className="font-black text-indigo-600 text-lg">2500 XP</div>
                     <div className="text-xs text-indigo-500 font-bold">Best Value</div>
                   </div>
-                  <div className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm">40 GHS</div>
+                  <button onClick={() => handlePaystackPayment(40)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold text-sm shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer">40 GHS</button>
                 </div>
               </div>
 
               <div className="mt-6">
                 <p className="text-center text-xs text-slate-500 font-semibold mb-3">SECURE CHECKOUT WITH</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <button className="bg-[#ffcc00] hover:bg-[#ffdb4d] text-[#1e293b] font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => handlePaystackPayment(10)}
+                    className="bg-[#ffcc00] hover:bg-[#ffdb4d] text-[#1e293b] font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
                     <span>MTN MoMo</span>
                   </button>
-                  <button className="bg-[#00c3f5] hover:bg-[#33cff7] text-white font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => handlePaystackPayment(10)}
+                    startIcon={null}
+                    className="bg-[#00c3f5] hover:bg-[#33cff7] text-white font-black py-2.5 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
                     <span>Paystack</span>
                   </button>
                 </div>

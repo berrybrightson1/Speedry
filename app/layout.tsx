@@ -28,6 +28,7 @@ export default function RootLayout({
       <head>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
         <link rel="manifest" href="/manifest.json" />
+        <script src="https://js.paystack.co/v1/inline.js"></script>
       </head>
       <body className={`font-sans antialiased`}>
         {children}
