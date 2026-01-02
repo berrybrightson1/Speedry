@@ -752,34 +752,8 @@ function GameScreen({
       }
     }
     else if (cheatCode === "RESETGAME") {
-      // RESET LOGIC handled by confirmation modal now
-      toast.error("Please confirm reset in the dialog.")
-    }
-    else if (cheatCode === "WIPEALL") {
-      // MASTER RESET: WIPE EVERYTHING
-      onWarp(1)
-      onXpChange(0)
-      setStreak(0)
-      setLives(3)
-
-      // Clear all cooldowns and tracking
-      localStorage.removeItem("speedry_last_warp")
-      localStorage.removeItem("speedry_warp_attempts")
-      localStorage.removeItem("speedry_last_reset")
-      localStorage.removeItem("speedry_xp_store_seen")
-
-      // Exit pause mode and return to menu
-      setIsPaused(false)
-      setShowCheatInput(false)
-
-      toast.success("🛡️ MASTER RESET EXECUTED: SYSTEM WIPED", {
-        style: { background: '#1e293b', color: '#10b981', fontWeight: 'bold' }
-      })
-
-      // Redirect to menu after toast
-      setTimeout(() => {
-        onBack()
-      }, 1500)
+      // Show confirmation modal
+      setShowResetConfirm(true)
     }
   }, [xp, onXpChange, onLevelUp, onWarp, onBack])
 
@@ -800,7 +774,7 @@ function GameScreen({
       // Set Reset Cooldown
       localStorage.setItem("speedry_last_reset", now.toString())
 
-      toast.success("â™»ï¸ GAME RESET SUCCESSFUL! Fire Mode Cooldown Cleared.")
+      toast.success("â™»ï¸ RESET COMPLETE! Level, XP, Streak wiped. Fire Mode unlocked!")
     } else {
       toast.error("Reset on Cooldown! (Once per 24h)")
     }
@@ -828,9 +802,6 @@ function GameScreen({
           keyBuffer = ""
         } else if (keyBuffer.endsWith("RESETGAME")) {
           activateCheat("RESETGAME")
-          keyBuffer = ""
-        } else if (keyBuffer.endsWith("WIPEALL")) {
-          activateCheat("WIPEALL")
           keyBuffer = ""
         }
       }
