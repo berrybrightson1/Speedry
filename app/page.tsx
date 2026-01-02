@@ -783,20 +783,8 @@ function GameScreen({
     }
     setShowResetConfirm(false)
   }
-  localStorage.removeItem("speedry_warp_attempts")
 
-  // SET RESET COOLDOWN
-  localStorage.setItem("speedry_last_reset", now.toString())
-
-  alert("🔄 GAME RESET! Fire Mode is available again. Good luck!")
-  // Reload to refresh state cleanly? Or just let React handle it. React is fine.
-  handleRetryLevel() // Reset board
-}
-      } else {
-  alert("⏳ RESET ON COOLDOWN. You can only reset once every 24 hours.")
-}
-    }
-  }, [xp, onXpChange, onLevelUp])
+}, [xp, onXpChange, onLevelUp])
 
 // CHEAT CODE LISTENER
 useEffect(() => {
