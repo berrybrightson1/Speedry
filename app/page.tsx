@@ -105,6 +105,19 @@ export default function SpeedryConquest() {
     setScreen("game")
   }
 
+  const handleLevelComplete = (newLevel: number) => {
+    setLevel(newLevel)
+    if (newLevel > bestLevel) {
+      setBestLevel(newLevel)
+      localStorage.setItem("speedry_best_level", newLevel.toString())
+    }
+  }
+
+  const handleWarp = (targetLevel: number) => {
+    setLevel(targetLevel)
+    setScreen("game")
+  }
+
   const handleMultiplayer = async () => {
     if (!playerId) return
 
@@ -742,7 +755,7 @@ function GameScreen({
       // RESET LOGIC handled by confirmation modal now
       toast.error("Please confirm reset in the dialog.")
     }
-    else if (cheatCode === "MASTERRESET") {
+    else if (cheatCode === "WIPEALL") {
       // MASTER RESET: WIPE EVERYTHING
       onWarp(1)
       onXpChange(0)
@@ -807,8 +820,8 @@ function GameScreen({
         } else if (keyBuffer.endsWith("RESETGAME")) {
           activateCheat("RESETGAME")
           keyBuffer = ""
-        } else if (keyBuffer.endsWith("MASTERRESET")) {
-          activateCheat("MASTERRESET")
+        } else if (keyBuffer.endsWith("WIPEALL")) {
+          activateCheat("WIPEALL")
           keyBuffer = ""
         }
       }
@@ -884,9 +897,9 @@ function GameScreen({
   }, [showPreview, previewTimeLeft, initialTime])
 
 
-  // Main Game Timer - Respects Pause
+  // Main Game Timer - Respects Pause AND Hint
   useEffect(() => {
-    if (isPaused || levelCompleted || showPreview) return
+    if (isPaused || levelCompleted || showPreview || hintTimeLeft !== null) return
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
