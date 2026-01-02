@@ -1716,81 +1716,97 @@ function ModeCarousel({
   }, [emblaApi])
 
   return (
-    <button
-      onClick={onQuickPlay}
-      className="w-full bg-gradient-to-br from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
-    >
-      <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-        <Zap className="w-8 h-8 text-white fill-white" />
-      </div>
-      <div className="text-center">
-        <h3 className="text-3xl font-black italic tracking-tighter">QUICK PLAY</h3>
-        <p className="text-blue-100 font-semibold text-sm mt-1">Random Levels 1-5</p>
-      </div>
-    </button>
-            {/* Absolute Badge */ }
-  <div className="absolute top-16 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm z-10">
-    <span className="text-xs font-bold text-white uppercase tracking-wider">Fast Action</span>
-  </div>
-          </div >
-
-    {/* SLIDE 2: JOURNEY */ }
-    < div className = "flex-[0_0_100%] min-w-0 relative" >
-            <button
-              onClick={onContinue}
-              className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
-            >
-              <div className="w-full flex items-center justify-between mb-2 px-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Trophy className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-purple-100 uppercase">Current Best</p>
-                    <p className="text-2xl font-black leading-none">LEVEL {bestLevel}</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-6 h-6 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
-              </div>
-
-              {/* Progress Bar Visual (Fake XP Progress towards next rank?) */}
-              <div className="w-full mt-4 bg-black/20 h-3 rounded-full overflow-hidden relative">
-                <div
-                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                  style={{ width: `${Math.min(100, (xp % 100))}%` }}
-                />
-              </div>
-              <div className="w-full flex justify-between mt-2 text-xs font-bold text-purple-100 px-1">
-                <span>{xp} XP</span>
-                <span>NEXT RANK</span>
-              </div>
-            </button>
-            <div className="absolute top-16 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 shadow-sm z-10 w-fit">
-              <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Resume</span>
+    <div className="relative">
+      <div className="relative rounded-3xl shadow-2xl overflow-hidden bg-white group">
+        {/* FIXED XP BAR OVERLAY */}
+        <div className="absolute top-0 left-0 right-0 z-20 p-2">
+          <div className="bg-white/90 backdrop-blur-md rounded-xl p-1.5 flex justify-between items-center px-3 border border-indigo-50 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
+              <span className="text-slate-800 font-black text-sm">{xp} XP</span>
             </div>
-          </div >
-        </div >
-      </div >
+            <button onClick={(e) => { e.stopPropagation(); onOpenStore() }} className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm active:scale-95 transition-all">
+              GET MORE
+            </button>
+          </div>
+        </div>
 
-      </div >
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex touch-pan-y">
+            {/* SLIDE 1: QUICK PLAY */}
+            <div className="flex-[0_0_100%] min-w-0 relative">
+              <button
+                onClick={onQuickPlay}
+                className="w-full bg-gradient-to-br from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
+              >
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Zap className="w-8 h-8 text-white fill-white" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-3xl font-black italic tracking-tighter">QUICK PLAY</h3>
+                  <p className="text-blue-100 font-semibold text-sm mt-1">Random Levels 1-5</p>
+                </div>
+              </button>
+              {/* Absolute Badge */}
+              <div className="absolute top-16 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm z-10">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Fast Action</span>
+              </div>
+            </div>
 
-    {/* Dots Indicator (Moved Outside) */ }
-    < div className = "flex justify-center gap-2 mt-4" >
-    {
-      [0, 1].map((index) => (
-        <button
-          key={index}
-          onClick={() => emblaApi?.scrollTo(index)}
-          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-sm ${selectedIndex === index
-            ? "bg-slate-800 w-6"
-            : "bg-slate-300 hover:bg-slate-400"
-            }`}
-          aria-label={`Go to slide ${index + 1}`}
-        />
-      ))
-    }
-      </div >
-    </div >
+            {/* SLIDE 2: JOURNEY */}
+            <div className="flex-[0_0_100%] min-w-0 relative">
+              <button
+                onClick={onContinue}
+                className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
+              >
+                <div className="w-full flex items-center justify-between mb-2 px-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <Trophy className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-purple-100 uppercase">Current Best</p>
+                      <p className="text-2xl font-black leading-none">LEVEL {bestLevel}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                </div>
+
+                {/* Progress Bar Visual */}
+                <div className="w-full mt-4 bg-black/20 h-3 rounded-full overflow-hidden relative">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                    style={{ width: `${Math.min(100, (xp % 100))}%` }}
+                  />
+                </div>
+                <div className="w-full flex justify-between mt-2 text-xs font-bold text-purple-100 px-1">
+                  <span>{xp} XP</span>
+                  <span>NEXT RANK</span>
+                </div>
+              </button>
+              <div className="absolute top-16 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 shadow-sm z-10 w-fit">
+                <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Resume</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dots Indicator (Moved Outside) */}
+      <div className="flex justify-center gap-2 mt-4">
+        {[0, 1].map((index) => (
+          <button
+            key={index}
+            onClick={() => emblaApi?.scrollTo(index)}
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-sm ${selectedIndex === index
+              ? "bg-slate-800 w-6"
+              : "bg-slate-300 hover:bg-slate-400"
+              }`}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
