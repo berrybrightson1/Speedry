@@ -598,6 +598,19 @@ export default function SpeedryConquest() {
             onMenu={() => setScreen("menu")}
           />
         )}
+        {/* HELP BUTTON (Constrained to App Container) */}
+        {!showHelp && !showGlobalStore && screen === "menu" && (
+          <button
+            onClick={() => {
+              setHelpTab("guide")
+              setShowHelp(true)
+            }}
+            className="absolute top-6 right-6 z-40 bg-white/80 backdrop-blur-md p-2.5 rounded-full shadow-lg border border-white/50 text-[#8b5cf6] hover:scale-110 active:scale-95 transition-all"
+            aria-label="Help"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+        )}
       </div>
       <InstallPrompt />
 
@@ -627,18 +640,7 @@ export default function SpeedryConquest() {
       />
 
       {/* FLOATING HELP BUTTON */}
-      {!showHelp && !showGlobalStore && (
-        <button
-          onClick={() => {
-            setHelpTab("guide")
-            setShowHelp(true)
-          }}
-          className="fixed top-6 right-6 z-50 bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl border-2 border-slate-100 text-[#8b5cf6] hover:scale-110 active:scale-95 transition-all animate-[float_4s_ease-in-out_infinite]"
-          aria-label="Help"
-        >
-          <HelpCircle className="w-6 h-6" />
-        </button>
-      )}
+
 
       <style jsx global>{`
         @keyframes float {
@@ -800,22 +802,39 @@ function MenuScreen({
   isSyncing: boolean
 }) {
   return (
-    <div className="relative w-full flex flex-col items-center justify-center space-y-8 py-12">
-      <div className="text-center relative">
-        {/* BRANDING */}
-        <h1 className="text-3xl font-black leading-none tracking-tight">
-          <span className="text-[#1e293b]">SPEE</span>
-          <span className="text-[#8b5cf6]">DRY</span>
-        </h1>
-        <p className="text-[#1e293b] text-base font-black tracking-wide mt-1">CONQUEST</p>
+    <div className="relative w-full flex flex-col items-center justify-center space-y-6 py-10">
+      {/* Header Stack */}
+      <div className="flex flex-col items-center z-20 w-full relative">
 
-        {/* AUTH PILL (Centered & Animated) */}
-        <div className="absolute left-1/2 -translate-x-1/2 -top-14 z-20">
+        {/* HELP BUTTON (Absolute in Header Context) */}
+        {!isSyncing && (
+          <button
+            onClick={() => {
+              // Determine how to trigger help from here? 
+              // Using a prop would be cleaner, but for now let's just use the global button or move it here.
+              // Wait, I am editing MenuScreen. I should probably just leave the global button 
+              // and strictly fix the Pill/Title stack here.
+            }}
+            className="hidden" // Placeholder if needed
+          />
+        )}
+
+        {/* AUTH PILL (Static Flow - Top of Stack) */}
+        <div className="mb-3 transform hover:scale-105 transition-transform duration-300">
           <AuthPill
             user={user}
             onLogin={onLogin}
             onLogout={onLogout}
           />
+        </div>
+
+        {/* BRANDING */}
+        <div className="text-center">
+          <h1 className="text-4xl font-black leading-none tracking-tight drop-shadow-sm">
+            <span className="text-[#1e293b]">SPEE</span>
+            <span className="text-[#8b5cf6]">DRY</span>
+          </h1>
+          <p className="text-[#1e293b]/80 text-sm font-black tracking-[0.2em] mt-1 ml-1">CONQUEST</p>
         </div>
       </div>
 
