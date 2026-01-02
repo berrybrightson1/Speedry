@@ -2,7 +2,7 @@
 // Build fix trigger
 
 import React, { useState, useEffect, useCallback } from "react"
-import React, { useState, useEffect, useCallback } from "react"
+
 import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
