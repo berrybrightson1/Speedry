@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 
-import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle } from "lucide-react"
+import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import useEmblaCarousel from "embla-carousel-react"
@@ -48,6 +48,31 @@ type RoomData = {
   }
   currentDeck?: string[] // Shared deck for fairness
 }
+
+// THEME CONFIGURATION
+const THEMES = [
+  {
+    name: "The Awakening",
+    icons: ['fa-leaf', 'fa-tree', 'fa-paw', 'fa-dog', 'fa-cat', 'fa-dove', 'fa-frog', 'fa-carrot'],
+    bgGradient: "from-slate-900 to-emerald-950",
+    particleColor: "bg-emerald-500",
+    accent: "text-emerald-400"
+  },
+  {
+    name: "The City",
+    icons: ['fa-city', 'fa-car', 'fa-bus', 'fa-building', 'fa-road', 'fa-traffic-light', 'fa-bicycle', 'fa-plane'],
+    bgGradient: "from-blue-950 to-slate-900",
+    particleColor: "bg-blue-500",
+    accent: "text-blue-400"
+  },
+  {
+    name: "The Inferno",
+    icons: ['fa-dragon', 'fa-fire', 'fa-skull', 'fa-ghost', 'fa-hat-wizard', 'fa-scroll', 'fa-ring', 'fa-crown'],
+    bgGradient: "from-orange-950 to-red-950",
+    particleColor: "bg-amber-500",
+    accent: "text-amber-400"
+  }
+]
 
 // Helper to generate consistent decks
 const generateDeck = (level: number) => {
@@ -106,11 +131,16 @@ export default function SpeedryConquest() {
   }
 
   const handleLevelComplete = (newLevel: number) => {
-    setLevel(newLevel)
+    // Just unlock the level without forcing a switch if used for saving
     if (newLevel > bestLevel) {
       setBestLevel(newLevel)
       localStorage.setItem("speedry_best_level", newLevel.toString())
     }
+  }
+
+  const handleLevelSwitch = (newLevel: number) => {
+    setLevel(newLevel)
+    handleLevelComplete(newLevel)
   }
 
   const handleWarp = (targetLevel: number) => {
@@ -652,7 +682,8 @@ CardGrid.displayName = "CardGrid"
 
 function GameScreen({
   onBack,
-  onLevelUp, // Added prop
+  onLevelUp,
+  onLevelUnlock, // Added prop // Added prop
   onWarp, // Added prop
   xp, // Added prop
   onXpChange, // Added prop
@@ -661,6 +692,7 @@ function GameScreen({
 }: {
   onBack: () => void
   onLevelUp: (newLevel: number) => void
+  onLevelUnlock: (newLevel: number) => void // New prop for saving
   onWarp: (targetLevel: number) => void
   xp: number
   onXpChange: (newXp: number) => void
@@ -698,6 +730,8 @@ function GameScreen({
   const [streak, setStreak] = useState(0)
   const [lives, setLives] = useState(3)
   const [hintTimeLeft, setHintTimeLeft] = useState<number | null>(null)
+  const [hintsUsed, setHintsUsed] = useState(0) // Track hints for penalty
+  const [hintsUsed, setHintsUsed] = useState(0) // Track hints for penalty
   const [showXpPopup, setShowXpPopup] = useState(false)
   const [xpPopupAmount, setXpPopupAmount] = useState(0)
   const [showEndGame, setShowEndGame] = useState(false)
@@ -717,8 +751,8 @@ function GameScreen({
   const activateCheat = useCallback((cheatCode: string = "FIREMODE") => {
     if (cheatCode === "FIREMODE") {
       // 1. Always give XP (Spammable)
-      onXpChange(xp + 800)
-      setXpPopupAmount(800)
+      onXpChange(xp + 200)
+      setXpPopupAmount(200)
       setShowXpPopup(true)
       setTimeout(() => setShowXpPopup(false), 1500)
 
@@ -733,7 +767,7 @@ function GameScreen({
         onWarp(20)
         localStorage.setItem("speedry_last_warp", now.toString())
         localStorage.setItem("speedry_warp_attempts", "0") // Reset attempts
-        toast.success("🔥 FIRE MODE ACTIVATED: Level 20 & +800 XP!", { duration: 3000 })
+        toast.success("🔥 FIRE MODE ACTIVATED: Level 20 & +200 XP!", { duration: 3000 })
       } else {
         // COOLDOWN ACTIVE
         const newAttempts = attempts + 1
@@ -906,6 +940,7 @@ function GameScreen({
   useEffect(() => {
     if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
       setLevelCompleted(true)
+      onLevelUnlock(level + 1) // Save progress immediately upon completion
 
       // Calculate XP based on performance
       const baseXp = 10 // Base XP for completing level
@@ -913,7 +948,16 @@ function GameScreen({
       const speedBonus = timeLeft > initialTime / 2 ? 5 : 0 // Bonus for fast completion
       const levelBonus = level >= 4 ? Math.floor(level / 2) : 0 // XP boost at level 4+
 
-      const totalXpEarned = baseXp + streakBonus + speedBonus + levelBonus
+      // Calculate XP based on performance
+      const baseXp = 10
+      const streakBonus = streak >= 3 ? 5 : 0
+      const speedBonus = timeLeft > initialTime / 2 ? 5 : 0
+      const levelBonus = level >= 4 ? Math.floor(level / 2) : 0
+
+      // Penalty: If hints used, forfeit streak and speed bonuses
+      const penalty = hintsUsed > 0 ? (streakBonus + speedBonus) : 0
+
+      const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
 
 
 
@@ -1001,6 +1045,8 @@ function GameScreen({
     }
 
     onXpChange(xp - cost)
+    setHintsUsed(h => h + 1) // Track usage
+    setHintsUsed(h => h + 1) // Track usage
 
     let revealedCount = 0
     let currentCards = [...cards]
