@@ -966,30 +966,40 @@ const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSiz
   // So we map the original cards, but return null for matched.
 
   return (
-    <div
-      ref={parent}
-      className="grid gap-3 mb-6"
-      style={{
-        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-      }}
-    >
-      {cards.map((card, i) => {
-        if (card.matched) return null
+    <div ref={parent}>
+      {/* Game Board */}
+      {cards.length === 0 ? (
+        <div className="flex flex-col items-center justify-center min-h-[300px] text-slate-500 animate-pulse">
+          <Loader2 className="h-10 w-10 mb-4 animate-spin" />
+          <p className="font-bold text-lg">Loading Level...</p>
+        </div>
+      ) : (
+        <div
+          className="grid gap-3 w-full max-w-md mx-auto aspect-square mb-6"
+          style={{
+            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`, // Dynamic Columns
+            gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))` // Square aspect ratio
+          }}
+        >
+          {cards.map((card, i) => {
+            if (card.matched) return null
 
-        return (
-          <button
-            key={card.id}
-            onClick={() => onCardClick(i)}
-            disabled={card.flipped || isPaused || hintActive}
-            className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center animate-in zoom-in ${card.flipped
-              ? "bg-[#f5f5f5] text-[#333] scale-105"
-              : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
-              }`}
-          >
-            {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
-          </button>
-        )
-      })}
+            return (
+              <button
+                key={card.id}
+                onClick={() => onCardClick(i)}
+                disabled={card.flipped || isPaused || hintActive}
+                className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center animate-in zoom-in ${card.flipped
+                  ? "bg-[#f5f5f5] text-[#333] scale-105"
+                  : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
+                  }`}
+              >
+                {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 })
@@ -1041,6 +1051,7 @@ function GameScreen({
   const setTimeLeft = (t: any) => { }; // Dummy setter
 
   // End Shims
+  console.log("GameScreen Render. Level:", level);
 
   const { state, handlers } = useGameSession(level, (bonusXp) => {
     // Level Complete Callback from Engine (VICTORY state)
@@ -1072,6 +1083,7 @@ function GameScreen({
   const timeLeft = state.timeLeft;
   const lives = state.livesLeft;
   const streak = state.streak;
+  console.log("Mapped State -> Phase:", state.phase, "Cards:", cards.length, "Time:", timeLeft, "Live:", lives);
 
   /* Duplicate gridCols removed */
   const gridCols = Math.ceil(Math.sqrt(cards.length || 0));
@@ -1088,6 +1100,7 @@ function GameScreen({
 
   // Legacy effects removed/simplified
   useEffect(() => {
+    console.log("Effect: Phase Change:", state.phase);
     if (state.phase === 'PREVIEW') {
       setShowPreview(true);
       setPreviewTimeLeft(5);

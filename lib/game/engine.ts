@@ -4,7 +4,7 @@ import { GameSessionState, LevelDef, GamePhase } from "@/types/game";
 export const createInitialState = (level: LevelDef): GameSessionState => {
     // Generate Deck
     const { pairCount } = level.config;
-    const icons = level.modifier?.iconSet || []; // Assuming passed manually or we fetch from Theme
+    const icons = level.modifiers?.iconSet || []; // Assuming passed manually or we fetch from Theme
     // For now generic deck logic (moved from data.ts or similar)
     // ... (Deck generation handled in Hook for now to keep Engine pure data)
 
@@ -47,7 +47,7 @@ export const gameReducer = (state: GameSessionState, action: Action): GameSessio
             return { ...state, cards: action.payload.cards };
 
         case 'START_PREVIEW':
-            return { ...state, phase: 'PREVIEW' };
+            return { ...state, phase: 'PREVIEW', timeLeft: state.config.previewTime };
 
         case 'START_PLAYING':
             return { ...state, phase: 'PLAYING' };

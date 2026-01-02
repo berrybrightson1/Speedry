@@ -22,6 +22,7 @@ export const generateCards = (level: LevelDef): GameCard[] => {
     const theme = THEMES[world?.themeId || 'nature'];
 
     const { pairCount } = level.config;
+    console.log("[generateCards] Generating for Level:", level.id, "Pairs:", pairCount);
     const icons = theme.icons;
 
     // 2. Select Icons (Loop if we need more pairs than icons)
