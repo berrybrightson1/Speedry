@@ -50,7 +50,7 @@ type RoomData = {
   currentDeck?: string[] // Shared deck for fairness
 }
 
-// THEME CONFIGURATION - SEASON SYSTEM (9 Levels per Season)
+// THEME CONFIGURATION - COMPREHENSIVE SEASON SYSTEM (9 Levels per Season)
 const THEMES = [
   {
     name: "The Awakening",
@@ -60,8 +60,26 @@ const THEMES = [
     bgGradient: "from-slate-900 to-emerald-950",
     particleColor: "bg-emerald-500",
     accent: "text-emerald-400",
-    primaryColor: "#10b981",
-    secondaryColor: "#059669"
+    // Comprehensive Color Palette
+    colors: {
+      primary: "#10b981",       // Emerald
+      secondary: "#059669",
+      accent: "#34d399",
+      // Card colors
+      cardBg: "#d1fae5",        // Light emerald tint
+      cardBgFlipped: "#a7f3d0",
+      cardBorder: "#10b981",
+      cardMatched: "#6ee7b7",
+      // Button colors
+      buttonPrimary: "from-emerald-500 to-teal-500",
+      buttonPrimaryHover: "from-emerald-600 to-teal-600",
+      buttonSecondary: "from-emerald-400 to-emerald-500",
+      // UI elements
+      hudBg: "#064e3b",
+      progressBar: "from-emerald-400 to-emerald-500",
+      textPrimary: "#064e3b",
+      textSecondary: "#10b981"
+    }
   },
   {
     name: "The City",
@@ -71,8 +89,22 @@ const THEMES = [
     bgGradient: "from-blue-950 to-slate-900",
     particleColor: "bg-blue-500",
     accent: "text-blue-400",
-    primaryColor: "#3b82f6",
-    secondaryColor: "#2563eb"
+    colors: {
+      primary: "#3b82f6",       // Blue
+      secondary: "#2563eb",
+      accent: "#60a5fa",
+      cardBg: "#dbeafe",
+      cardBgFlipped: "#bfdbfe",
+      cardBorder: "#3b82f6",
+      cardMatched: "#93c5fd",
+      buttonPrimary: "from-blue-500 to-cyan-500",
+      buttonPrimaryHover: "from-blue-600 to-cyan-600",
+      buttonSecondary: "from-blue-400 to-blue-500",
+      hudBg: "#1e3a8a",
+      progressBar: "from-blue-400 to-blue-500",
+      textPrimary: "#1e3a8a",
+      textSecondary: "#3b82f6"
+    }
   },
   {
     name: "The Inferno",
@@ -82,8 +114,22 @@ const THEMES = [
     bgGradient: "from-orange-950 to-red-950",
     particleColor: "bg-amber-500",
     accent: "text-amber-400",
-    primaryColor: "#f59e0b",
-    secondaryColor: "#d97706"
+    colors: {
+      primary: "#f59e0b",       // Amber/Orange
+      secondary: "#d97706",
+      accent: "#fbbf24",
+      cardBg: "#fef3c7",
+      cardBgFlipped: "#fde68a",
+      cardBorder: "#f59e0b",
+      cardMatched: "#fcd34d",
+      buttonPrimary: "from-orange-500 to-amber-500",
+      buttonPrimaryHover: "from-orange-600 to-amber-600",
+      buttonSecondary: "from-amber-400 to-amber-500",
+      hudBg: "#78350f",
+      progressBar: "from-amber-400 to-amber-500",
+      textPrimary: "#78350f",
+      textSecondary: "#f59e0b"
+    }
   },
   {
     name: "The Cosmos",
@@ -93,8 +139,22 @@ const THEMES = [
     bgGradient: "from-indigo-950 to-purple-950",
     particleColor: "bg-purple-500",
     accent: "text-purple-400",
-    primaryColor: "#8b5cf6",
-    secondaryColor: "#7c3aed"
+    colors: {
+      primary: "#8b5cf6",       // Purple
+      secondary: "#7c3aed",
+      accent: "#a78bfa",
+      cardBg: "#ede9fe",
+      cardBgFlipped: "#ddd6fe",
+      cardBorder: "#8b5cf6",
+      cardMatched: "#c4b5fd",
+      buttonPrimary: "from-purple-500 to-indigo-500",
+      buttonPrimaryHover: "from-purple-600 to-indigo-600",
+      buttonSecondary: "from-purple-400 to-purple-500",
+      hudBg: "#4c1d95",
+      progressBar: "from-purple-400 to-purple-500",
+      textPrimary: "#4c1d95",
+      textSecondary: "#8b5cf6"
+    }
   }
 ]
 
@@ -113,6 +173,136 @@ const getCurrentSeason = (level: number) => {
     theme: theme,
     nextSeasonAt: (seasonIndex + 1) * 9 + 1
   }
+}
+
+// SOUND & HAPTIC UTILITIES
+let audioContext: AudioContext | null = null
+
+const getAudioContext = () => {
+  if (!audioContext && typeof window !== 'undefined') {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+  }
+  return audioContext
+}
+
+const playSound = (frequency: number, duration: number, type: OscillatorType = 'sine', volume: number = 0.1) => {
+  try {
+    const isMuted = localStorage.getItem('speedry_sound_muted') === 'true'
+    if (isMuted) return
+
+    const ctx = getAudioContext()
+    if (!ctx) return
+
+    const oscillator = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(ctx.destination)
+
+    oscillator.frequency.value = frequency
+    oscillator.type = type
+    gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration)
+
+    oscillator.start(ctx.currentTime)
+    oscillator.stop(ctx.currentTime + duration)
+  } catch (error) {
+    // Silently fail if audio not supported
+  }
+}
+
+const vibrate = (pattern: number | number[]) => {
+  try {
+    const isHapticsDisabled = localStorage.getItem('speedry_haptics_disabled') === 'true'
+    if (isHapticsDisabled) return
+    if (navigator.vibrate) {
+      navigator.vibrate(pattern)
+    }
+  } catch (error) {
+    // Silently fail if vibration not supported
+  }
+}
+
+// Sound effects library
+const sounds = {
+  cardFlip: () => {
+    playSound(400, 0.05, 'square', 0.05)
+    vibrate(10)
+  },
+  matchFound: () => {
+    playSound(600, 0.1, 'sine', 0.15)
+    playSound(800, 0.15, 'sine', 0.1)
+    vibrate(20)
+  },
+  matchWrong: () => {
+    playSound(200, 0.15, 'sawtooth', 0.08)
+    vibrate([15, 30, 15])
+  },
+  streakCombo: (streakLevel: number) => {
+    const baseFreq = 600 + (streakLevel * 100)
+    playSound(baseFreq, 0.1, 'triangle', 0.12)
+    playSound(baseFreq + 200, 0.15, 'triangle', 0.08)
+    vibrate(30)
+  },
+  levelComplete: () => {
+    playSound(800, 0.15, 'sine', 0.15)
+    playSound(1000, 0.15, 'sine', 0.12)
+    playSound(1200, 0.2, 'sine', 0.1)
+    vibrate([50, 50, 50, 50, 100])
+  },
+  xpGain: () => {
+    playSound(1000, 0.08, 'square', 0.1)
+    vibrate(15)
+  },
+  buttonClick: () => {
+    playSound(300, 0.03, 'square', 0.05)
+  }
+}
+
+// DAILY REWARDS SYSTEM
+const DAILY_REWARDS = [50, 75, 100, 150, 200, 300, 500] // Days 1-7
+
+const getDailyRewardStatus = () => {
+  const lastClaim = localStorage.getItem('speedry_last_claim_date')
+  const currentStreak = Number(localStorage.getItem('speedry_daily_streak') || 0)
+
+  if (!lastClaim) {
+    return { canClaim: true, streak: 0, reward: DAILY_REWARDS[0], daysSinceLastClaim: Infinity }
+  }
+
+  const lastClaimDate = new Date(lastClaim)
+  const today = new Date()
+
+  // Reset time to midnight for accurate day comparison
+  lastClaimDate.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+
+  const daysDiff = Math.floor((today.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (daysDiff === 0) {
+    // Already claimed today
+    return { canClaim: false, streak: currentStreak, reward: 0, daysSinceLastClaim: 0 }
+  } else if (daysDiff === 1) {
+    // Consecutive day! Increment streak
+    const newStreak = Math.min(currentStreak + 1, 7)
+    return { canClaim: true, streak: currentStreak, nextStreak: newStreak, reward: DAILY_REWARDS[newStreak - 1], daysSinceLastClaim: 1 }
+  } else {
+    // Missed a day - reset streak
+    return { canClaim: true, streak: 0, reward: DAILY_REWARDS[0], daysSinceLastClaim: daysDiff }
+  }
+}
+
+const claimDailyReward = () => {
+  const status = getDailyRewardStatus()
+  if (!status.canClaim) return null
+
+  const newStreak = status.nextStreak || 1
+  const today = new Date().toISOString()
+
+  localStorage.setItem('speedry_last_claim_date', today)
+  localStorage.setItem('speedry_daily_streak', newStreak.toString())
+
+  return { reward: status.reward, streak: newStreak }
 }
 
 // Helper to generate consistent decks
@@ -137,7 +327,8 @@ export default function SpeedryConquest() {
   // GLOBAL STORE STATE
   const [showGlobalStore, setShowGlobalStore] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-  const [helpTab, setHelpTab] = useState("guide")
+  const [helpTab, setHelpTab] = useState<"guide" | "secrets" | "updates">("guide")
+  const [showDailyReward, setShowDailyReward] = useState(false)
 
   // Auth State
   const [user, setUser] = useState<FirebaseUser | null>(null)
@@ -924,6 +1115,90 @@ function DraggableHelpButton({ onOpenHelp }: { onOpenHelp: () => void }) {
   )
 }
 
+function DailyRewardModal({ onClaim, onClose }: { onClaim: () => void, onClose: () => void }) {
+  const rewardStatus = getDailyRewardStatus()
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl transform animate-in slide-in-from-bottom-4 duration-500">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-black text-slate-800 mb-1">🎁 Daily Reward</h2>
+          <p className="text-sm font-semibold text-slate-600">
+            {rewardStatus.canClaim
+              ? rewardStatus.daysSinceLastClaim > 1
+                ? `Streak lost! Starting fresh from Day 1`
+                : `Day ${(rewardStatus.nextStreak || 1)} Reward!`
+              : `Come back tomorrow for Day ${rewardStatus.streak + 1}!`}
+          </p>
+        </div>
+
+        {/* Streak Calendar */}
+        <div className="grid grid-cols-7 gap-2 mb-6">
+          {DAILY_REWARDS.map((reward, idx) => {
+            const dayNum = idx + 1
+            const isCompleted = dayNum <= rewardStatus.streak
+            const isCurrent = rewardStatus.canClaim && dayNum === (rewardStatus.nextStreak || 1)
+
+            return (
+              <div
+                key={idx}
+                className={`aspect-square rounded-xl flex flex-col items-center justify-center p-2 border-2 ${isCompleted
+                  ? 'bg-emerald-100 border-emerald-400'
+                  : isCurrent
+                    ? 'bg-gradient-to-br from-amber-100 to-orange-100 border-amber-500 animate-pulse'
+                    : 'bg-slate-100 border-slate-300'
+                  }`}
+              >
+                <div className="text-[10px] font-black text-slate-700">D{dayNum}</div>
+                <div className={`text-xs font-bold ${isCompleted ? 'text-emerald-600' : isCurrent ? 'text-orange-600' : 'text-slate-500'}`}>
+                  {reward}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Reward Amount */}
+        {rewardStatus.canClaim && (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 mb-6 text-center border-2 border-amber-300">
+            <p className="text-sm font-bold text-amber-700 mb-2">Today's Reward</p>
+            <p className="text-5xl font-black text-amber-600">+{rewardStatus.reward} XP</p>
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          {rewardStatus.canClaim ? (
+            <>
+              <button
+                onClick={onClose}
+                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl transition-all"
+              >
+                Later
+              </button>
+              <button
+                onClick={onClaim}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black py-3 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <Gift className="h-5 w-5" />
+                CLAIM NOW!
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onClose}
+              className="w-full bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black py-3 rounded-xl transition-all"
+            >
+              CLOSE
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MenuScreen({
   onQuickPlay,
   onContinue,
@@ -1095,12 +1370,13 @@ function LevelSelectScreen({
   )
 }
 
-const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSize = 4 }: {
+const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSize = 4, theme }: {
   cards: Card[],
   onCardClick: (index: number) => void,
   isPaused: boolean,
   hintActive: boolean,
-  gridSize?: number
+  gridSize?: number,
+  theme: typeof THEMES[0]
 }) => {
   const [parent] = useAutoAnimate()
 
@@ -1125,12 +1401,18 @@ const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSiz
             key={card.id}
             onClick={() => onCardClick(i)}
             disabled={card.flipped || isPaused || hintActive}
-            className={`aspect-square rounded-xl shadow-md transition-all duration-75 text-[32px] flex items-center justify-center animate-in zoom-in ${card.flipped
-              ? "bg-[#f5f5f5] text-[#333] scale-105"
-              : "bg-[#9e9e9e] hover:bg-[#8e8e8e] hover:scale-105 text-transparent"
+            className={`aspect-square rounded-xl shadow-md transition-all duration-300 text-4xl flex items-center justify-center ${card.flipped
+              ? "scale-105 shadow-lg border-4"
+              : "hover:scale-105 hover:shadow-lg active:scale-95 border-4 border-transparent"
               }`}
+            style={{
+              backgroundColor: card.flipped ? theme.colors.cardBgFlipped : theme.colors.cardBg,
+              borderColor: card.flipped ? theme.colors.cardBorder : 'transparent',
+              color: theme.colors.textPrimary,
+              transition: 'all 0.3s ease-in-out'
+            }}
           >
-            {(card.flipped) && <i className={`fa-solid ${card.value}`}></i>}
+            {card.flipped && <i className={`fa-solid ${card.value}`}></i>}
           </button>
         )
       })}
@@ -1422,7 +1704,9 @@ function GameScreen({
 
       const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
 
-
+      // SOUND: Level complete + XP gain!
+      sounds.levelComplete()
+      sounds.xpGain()
 
       onXpChange(xp + totalXpEarned)
       setXpPopupAmount(totalXpEarned)
@@ -1454,6 +1738,9 @@ function GameScreen({
       newCards[index].flipped = true
       setCards(newCards)
 
+      // SOUND: Card flip
+      sounds.cardFlip()
+
       const newFlipped = [...flippedIndices, index]
       setFlippedIndices(newFlipped)
 
@@ -1467,11 +1754,17 @@ function GameScreen({
             updatedCards[first].matched = true
             updatedCards[second].matched = true
 
+            // SOUND: Match found!
+            sounds.matchFound()
+
             const newStreak = streak + 1
             setStreak(newStreak)
 
             if (newStreak >= 2) {
               const streakXp = 2 * newStreak
+
+              // SOUND: Streak combo!
+              sounds.streakCombo(newStreak)
 
               onXpChange(xp + streakXp)
               setXpPopupAmount(streakXp)
@@ -1479,6 +1772,9 @@ function GameScreen({
               setTimeout(() => setShowXpPopup(false), 1000)
             }
           } else {
+            // SOUND: Wrong match
+            sounds.matchWrong()
+
             updatedCards[first].flipped = false
             updatedCards[second].flipped = false
             setStreak(0)
@@ -1827,6 +2123,7 @@ function GameScreen({
           isPaused={isPaused}
           hintActive={hintTimeLeft !== null}
           gridSize={gridCols}
+          theme={currentTheme}
         />
 
         <div className="flex gap-2 mb-4">
@@ -1834,7 +2131,7 @@ function GameScreen({
           <button
             onClick={() => handleHint(10, 1)}
             disabled={xp < 10 || hintTimeLeft !== null || isPaused}
-            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]"} disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
+            className={`flex-1 rounded-xl shadow-md ${isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : `bg-gradient-to-r ${currentTheme.colors.buttonSecondary} hover:${currentTheme.colors.buttonPrimaryHover}`} disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
           >
             <Zap className="h-3.5 w-3.5" />
             {hintTimeLeft !== null ? `VISIBLE (${hintTimeLeft}s)` : "HINT (10 XP)"}
@@ -1858,10 +2155,10 @@ function GameScreen({
               className={`flex-1 rounded-xl shadow-md font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
                 ? isFireMode
                   ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
-                  : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
+                  : `bg-gradient-to-r ${currentTheme.colors.buttonSecondary} text-white hover:${currentTheme.colors.buttonPrimaryHover}`
                 : isFireMode
                   ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
-                  : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
+                  : `bg-gradient-to-r ${currentTheme.colors.buttonPrimary} text-white hover:${currentTheme.colors.buttonPrimaryHover}`
                 }`}
             >
               {!isPaused ? (
@@ -1884,7 +2181,7 @@ function GameScreen({
                     setLevelCompleted(false)
                     onLevelUp(level + 1)
                   }}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                  className={`w-full bg-gradient-to-r ${currentTheme.colors.buttonPrimary} hover:bg-gradient-to-r hover:${currentTheme.colors.buttonPrimaryHover} text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2`}
                 >
                   <Trophy className="h-5 w-5" />
                   GGs NEXT LEVEL
@@ -1904,7 +2201,7 @@ function GameScreen({
                           <ChevronRight className="w-3 h-3" />
                           NEXT: Season {completedSeasonNumber + 1}
                         </p>
-                        <p className="text-sm font-black" style={{ color: nextTheme.primaryColor }}>
+                        <p className="text-sm font-black" style={{ color: nextTheme.colors.primary }}>
                           {nextTheme.name}
                         </p>
                         <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">
@@ -2715,6 +3012,7 @@ function MultiplayerGameplay({
           isPaused={isPaused}
           hintActive={hintTimer !== null}
           gridSize={gridSize}
+          theme={THEMES[0]}
         />
 
         <div className="flex rounded-2xl overflow-hidden shadow-lg">
@@ -3028,18 +3326,16 @@ function HelpModal({
             <div className="space-y-6">
               <div className="relative pl-4 border-l-2 border-emerald-500">
                 <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <h3 className="font-black text-slate-800 text-lg">v2.2 - Season & UX Update</h3>
+                <h3 className="font-black text-slate-800 text-lg">v2.3 - Engagement & Theme Update</h3>
                 <p className="text-emerald-600 text-xs font-bold mb-1">Current Version</p>
-                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:36 AM</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 10:07 AM</p>
                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
+                  <li><span className="font-bold">Daily Rewards System</span>: 7-day streak (50-500 XP) with FOMO mechanics</li>
+                  <li><span className="font-bold">Sound Effects + Haptics</span>: Audio feedback and vibrations for all key actions</li>
+                  <li><span className="font-bold">Comprehensive Theme Colors</span>: All UI changes color per season (cards, buttons, HUD)</li>
                   <li><span className="font-bold">Season System</span>: 9 levels per themed season with progress tracking</li>
-                  <li><span className="font-bold">Season Celebration</span>: Congrats message & next theme preview on completion</li>
                   <li><span className="font-bold">Draggable Help Button</span>: Move help bubble anywhere like iPhone AssistiveTouch</li>
-                  <li><span className="font-bold">Enhanced Guide</span>: Clear FIREMODE cheat instructions in Secrets tab</li>
-                  <li><span className="font-bold">Simplified Level Complete</span>: Removed popup, clean button transitions</li>
-                  <li><span className="font-bold">Faster XP Popup</span>: Reduced display time from 1.5s to 1s</li>
                   <li><span className="font-bold">Menu Button Fix</span>: Now properly returns to main menu after level</li>
-                  <li><span className="font-bold">Patch Notes</span>: All updates now include timestamps</li>
                 </ul>
               </div>
 
