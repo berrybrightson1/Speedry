@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Share, PlusSquare, X, Download } from "lucide-react"
 
-export function InstallPrompt() {
+export default function InstallPrompt() {
     const [isIOS, setIsIOS] = useState(false)
     const [isStandalone, setIsStandalone] = useState(false)
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
