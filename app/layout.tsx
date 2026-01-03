@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { InstallPrompt } from '@/components/InstallPrompt'
+import InstallPrompt from '@/components/InstallPrompt'
 import { Toaster } from 'sonner'
 import './globals.css'
 
@@ -30,7 +30,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <script src="https://js.paystack.co/v1/inline.js"></script>
       </head>
-      <body className={`font-sans antialiased`}>
+      <body className={`font-sans antialiased`} suppressHydrationWarning>
         {children}
         <InstallPrompt />
         <Toaster position="top-center" richColors />
