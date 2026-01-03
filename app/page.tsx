@@ -1,6 +1,6 @@
 ﻿"use client"
 // Build fix trigger
-
+import { useSound } from "@/hooks/useSound";
 import React, { useState, useEffect, useCallback } from "react"
 
 import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User, Cloud } from "lucide-react"
@@ -1024,16 +1024,14 @@ function GameScreen({
   // Low Levels (1-10): +4s per level.
   // Mid Levels (11-19): +5s per level (Grids get bigger).
   // High Levels (20+): +6s per level (Fire Mode - Intense but Fair).
-  const pairsCount = level + 1
+  const { playSound } = useSound();
 
-  let initialTime = 0
-  if (level <= 10) {
-    initialTime = 6 + (level - 1) * 4
-  } else if (level < 20) {
-    initialTime = 42 + (level - 10) * 5   // Level 10 ends at 6+9*4=42. So start from 42.
-  } else {
-    initialTime = 87 + (level - 20) * 6   // Level 19 ends at 42+9*5=87. So start from 87.
-  }
+  // LOGIC C: Specific User Request
+  // Level 1 (2 pairs) = 5s
+  // Level 2 (3 pairs) = 8s
+  // Formula: (Pairs * 3) - 1
+  const pairsCount = level + 1
+  const initialTime = (pairsCount * 3) - 1
 
   const isFireMode = level >= 20
 
@@ -1057,6 +1055,7 @@ function GameScreen({
   const [levelCompleted, setLevelCompleted] = useState(false)
   const [showPreview, setShowPreview] = useState(true)
   const [previewTimeLeft, setPreviewTimeLeft] = useState(5)
+  const [isLevelLoading, setIsLevelLoading] = useState(false) // Guard against fast completions
 
   const [targetTime, setTargetTime] = useState<number | null>(null)
 
@@ -1114,9 +1113,9 @@ function GameScreen({
     const COOLDOWN = 24 * 60 * 60 * 1000
 
     if (!lastReset || now - Number(lastReset) > COOLDOWN) {
-      onLevelUp(1)
-      onXpChange(0)
-      setStreak(0)
+      onLevelUp(1) // Force Level 1
+      onXpChange(0) // Wipe XP
+      setStreak(0) // Wipe Streak
 
       // RESET FIREMODE COOLDOWN
       localStorage.removeItem("speedry_last_warp")
@@ -1178,6 +1177,7 @@ function GameScreen({
         matched: false,
         flipped: true, // Start with all cards flipped for preview
       }))
+    setIsLevelLoading(true) // Start loading
     setCards(cardPairs)
     setTimeLeft(initialTime)
     setLevelCompleted(false)
@@ -1186,7 +1186,11 @@ function GameScreen({
     setShowPreview(true)
     // Scale preview time: Fixed 4s as requested
     setPreviewTimeLeft(4)
+    setHintsUsed(0) // Reset hints for new level
     setTargetTime(null) // Reset target time
+
+    // Allow completion check after a short delay (ensure state settles)
+    setTimeout(() => setIsLevelLoading(false), 500)
   }, [level, pairsCount, initialTime])
 
   // Reset timer when level changes
@@ -1260,7 +1264,7 @@ function GameScreen({
   }, [timeLeft, levelCompleted])
 
   useEffect(() => {
-    if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
+    if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted && !isLevelLoading) {
       setLevelCompleted(true)
       onLevelUnlock(level + 1) // Save progress immediately upon completion
 
@@ -1275,7 +1279,11 @@ function GameScreen({
 
       const totalXpEarned = Math.max(0, baseXp + streakBonus + speedBonus + levelBonus - penalty)
 
-
+      // Only give XP if not already processed (using a flag or trust the dependency array)
+      // Since 'levelCompleted' is a dependency, we must be careful.
+      // But we are setting levelCompleted=true INSIDE the effect.
+      // Ideally this logic should be outside. For now, just adding sound.
+      playSound('win');
 
       onXpChange(xp + totalXpEarned)
       setXpPopupAmount(totalXpEarned)
@@ -1288,7 +1296,7 @@ function GameScreen({
 
       return () => clearTimeout(timerId)
     }
-  }, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, xp])
+  }, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, playSound]) // Removed 'xp' to avoid loop if onXpChange updates it immediately
 
   const handleCardClick = useCallback(
     (index: number) => {
@@ -1303,6 +1311,8 @@ function GameScreen({
       )
         return
 
+      playSound('click');
+
       const newCards = [...cards]
       newCards[index].flipped = true
       setCards(newCards)
@@ -1313,6 +1323,9 @@ function GameScreen({
       if (newFlipped.length === 2) {
         const [first, second] = newFlipped
         const isMatch = cards[first].value === cards[second].value
+
+        if (isMatch) playSound('match');
+        else playSound('mismatch');
 
         setTimeout(() => {
           const updatedCards = [...newCards]
@@ -1360,6 +1373,7 @@ function GameScreen({
       return
     }
 
+    playSound('hint');
     onXpChange(xp - cost)
     setHintsUsed(h => h + 1) // Track usage
     setHintsUsed(h => h + 1) // Track usage
