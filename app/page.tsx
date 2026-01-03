@@ -187,6 +187,7 @@ const getAudioContext = () => {
 
 const playSound = (frequency: number, duration: number, type: OscillatorType = 'sine', volume: number = 0.1) => {
   try {
+    if (typeof window === 'undefined') return
     const isMuted = localStorage.getItem('speedry_sound_muted') === 'true'
     if (isMuted) return
 
@@ -213,6 +214,7 @@ const playSound = (frequency: number, duration: number, type: OscillatorType = '
 
 const vibrate = (pattern: number | number[]) => {
   try {
+    if (typeof window === 'undefined') return
     const isHapticsDisabled = localStorage.getItem('speedry_haptics_disabled') === 'true'
     if (isHapticsDisabled) return
     if (navigator.vibrate) {
@@ -263,6 +265,8 @@ const sounds = {
 const DAILY_REWARDS = [50, 75, 100, 150, 200, 300, 500] // Days 1-7
 
 const getDailyRewardStatus = () => {
+  if (typeof window === 'undefined') return { canClaim: false, streak: 0, reward: 0, daysSinceLastClaim: 0 }
+
   const lastClaim = localStorage.getItem('speedry_last_claim_date')
   const currentStreak = Number(localStorage.getItem('speedry_daily_streak') || 0)
 
@@ -3232,7 +3236,7 @@ function HelpModal({
   isOpen: boolean
   onClose: () => void
   activeTab: string
-  onTabChange: (tab: string) => void
+  onTabChange: (tab: "guide" | "secrets" | "updates") => void
 }) {
   if (!isOpen) return null
 
