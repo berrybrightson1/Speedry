@@ -1212,9 +1212,9 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div
         className="rounded-[2rem] p-1.5 w-full max-w-[320px] shadow-2xl transform animate-in zoom-in-95 duration-300"
-        style={{ background: `linear-gradient(135deg, ${theme.colors.textPrimary}, ${theme.colors.textSecondary})` }}
+        style={{ background: 'transparent' }}
       >
-        <div className="bg-white rounded-[1.7rem] p-5 relative overflow-hidden flex flex-col items-center">
+        <div className="bg-white rounded-[1.7rem] p-5 relative overflow-hidden flex flex-col items-center shadow-lg border-0">
           {/* Decorative Glow */}
           <div className={`absolute -top-20 -left-20 w-48 h-48 bg-gradient-to-br ${theme.bgGradient} opacity-10 blur-3xl rounded-full pointer-events-none`} />
 
@@ -1247,22 +1247,22 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
                 <div
                   key={idx}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden ${isCompleted
-                      ? 'bg-emerald-50 border-emerald-400 opacity-100'
-                      : isCurrent
-                        ? isRepairable ? 'bg-red-50 border-red-400 animate-pulse' : 'bg-amber-50 border-amber-400 animate-pulse'
-                        : 'bg-slate-50 border-slate-200'
+                    ? 'bg-emerald-50 border-emerald-400 opacity-100'
+                    : isCurrent
+                      ? isRepairable ? 'bg-red-50 border-red-400 animate-pulse' : 'bg-amber-50 border-amber-400 animate-pulse'
+                      : 'bg-slate-50 border-slate-200'
                     }`}
                   style={{
                     borderColor: isCompleted ? theme.colors.textSecondary : undefined,
-                    gridColumn: idx === 6 ? 'span 2' : 'span 1', // Day 7 spans 2 cols on the last row
+                    gridColumn: 'span 1', // ALL DAYS ARE NOW EQUAL SIZE (1x1)
                   }}
                 >
                   <div className={`text-[9px] font-black uppercase ${isCompleted ? 'text-emerald-700' : isCurrent ? 'text-slate-600' : 'text-slate-400'}`}>
                     Day {dayNum} {idx === 6 && '🏆'}
                   </div>
                   <div className={`text-sm font-black ${isCompleted ? 'text-emerald-700'
-                      : isCurrent ? (isRepairable ? 'text-red-600' : 'text-amber-600')
-                        : 'text-slate-300'
+                    : isCurrent ? (isRepairable ? 'text-red-600' : 'text-amber-600')
+                      : 'text-slate-300'
                     }`}>
                     {reward}
                   </div>
@@ -1314,11 +1314,11 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
                   <div className="flex flex-col gap-2 w-full">
                     <button
                       onClick={onClaim}
-                      className={`w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden group border-b-4 border-black/10 bg-gradient-to-r ${theme.buttonPrimary}`}
+                      className="w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden group bg-gradient-to-r from-purple-500 to-indigo-600" // PURPLE CLAIM BUTTON
                     >
                       <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                       <Gift className="h-5 w-5 stroke-white" />
-                      <span className="text-base text-white drop-shadow-sm">CLAIM REWARD</span>
+                      <span className="text-base text-white drop-shadow-sm uppercase tracking-wide">CLAIM REWARD</span>
                     </button>
                     <button
                       onClick={onClose}
