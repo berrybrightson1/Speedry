@@ -335,7 +335,7 @@ export default function SpeedryConquest() {
     }
 
     // PATCH NOTES CHECK (Content Update)
-    const PATCH_VERSION = "2.1_HELP_UPDATE" // Increment this to show Patch Notes
+    const PATCH_VERSION = "2.2_SEASON_THEME_UPDATE" // Increment this to show Patch Notes
     const storedPatch = localStorage.getItem("speedry_patch_version")
 
     if (storedPatch !== PATCH_VERSION) {
@@ -1771,20 +1771,50 @@ function GameScreen({
             </button>
           ) : (
             <>
+              <div className="flex-1 space-y-2">
+                <button
+                  onClick={() => {
+                    setLevelCompleted(false)
+                    onLevelUp(level + 1)
+                  }}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Trophy className="h-5 w-5" />
+                  GGs NEXT LEVEL
+                </button>
+                {/* Season Completion Message */}
+                {level % 9 === 0 && (() => {
+                  const nextTheme = THEMES[Math.floor(level / 9) % THEMES.length]
+                  const completedSeasonNumber = Math.floor((level - 1) / 9) + 1
+                  return (
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
+                      <div className="text-center">
+                        <p className="text-lg font-black text-purple-900 mb-1">🎉 SEASON {completedSeasonNumber} COMPLETE! 🎉</p>
+                        <p className="text-xs font-bold text-purple-600">Congratulations on conquering {currentTheme.name}!</p>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 border border-purple-100">
+                        <p className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                          <ChevronRight className="w-3 h-3" />
+                          NEXT: Season {completedSeasonNumber + 1}
+                        </p>
+                        <p className="text-sm font-black" style={{ color: nextTheme.primaryColor }}>
+                          {nextTheme.name}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">
+                          {nextTheme.name === "The City" && "Enter the urban jungle where steel meets sky. Navigate bustling streets and towering skyscrapers."}
+                          {nextTheme.name === "The Inferno" && "Brave the flames of legend. Dragons soar, wizards cast spells, and ancient mysteries await."}
+                          {nextTheme.name === "The Cosmos" && "Journey beyond the stars. Explore the infinite universe where galaxies collide."}
+                          {nextTheme.name === "The Awakening" && "Return to nature's embrace. Where life begins anew and green fields stretch endlessly."}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
               <button
                 onClick={() => {
                   setLevelCompleted(false)
-                  onLevelUp(level + 1)
-                }}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-              >
-                <Trophy className="h-5 w-5" />
-                GGs NEXT LEVEL
-              </button>
-              <button
-                onClick={() => {
-                  setLevelCompleted(false)
-                  onBack()
+                  onGameOver()
                 }}
                 className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base px-6 py-4 rounded-xl transition-all hover:scale-105"
               >
@@ -1905,8 +1935,8 @@ function ModeCarousel({
   return (
     <div className="relative">
       <div className="relative rounded-3xl shadow-2xl overflow-hidden bg-white group">
-        {/* FIXED XP BAR OVERLAY */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-2">
+        {/* FIXED XP BAR OVERLAY - Highest z-index */}
+        <div className="absolute top-0 left-0 right-0 z-30 p-2">
           <div className="bg-white/90 backdrop-blur-md rounded-xl p-1.5 flex justify-between items-center px-3 border border-indigo-50 shadow-sm">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
@@ -1934,7 +1964,7 @@ function ModeCarousel({
                   <p className="text-blue-100 font-semibold text-sm mt-1">Random Levels 1-5</p>
                 </div>
               </button>
-              {/* Absolute Badge */}
+              {/* Absolute Badge - Below XP bar */}
               <div className="absolute top-16 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-sm z-10">
                 <span className="text-xs font-bold text-white uppercase tracking-wider">Fast Action</span>
               </div>
@@ -1978,6 +2008,7 @@ function ModeCarousel({
                   </div>
                 </div>
               </button>
+              {/* Season Badge - Below XP bar */}
               <div className="absolute top-16 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 shadow-sm z-10 w-fit">
                 <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Season {seasonInfo.seasonNumber}</span>
               </div>
@@ -2894,12 +2925,15 @@ function HelpModal({
                 <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <h3 className="font-black text-slate-800 text-lg">v2.2 - Season & UX Update</h3>
                 <p className="text-emerald-600 text-xs font-bold mb-1">Current Version</p>
-                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:04 AM</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:27 AM</p>
                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
                   <li><span className="font-bold">Season System</span>: 9 levels per themed season with progress tracking</li>
+                  <li><span className="font-bold">Season Celebration</span>: Congrats message & next theme preview on completion</li>
                   <li><span className="font-bold">Enhanced Guide</span>: Clear FIREMODE cheat instructions in Secrets tab</li>
                   <li><span className="font-bold">Simplified Level Complete</span>: Removed popup, clean button transitions</li>
                   <li><span className="font-bold">Help Bubble</span>: Repositioned to top-right with dramatic glow effect</li>
+                  <li><span className="font-bold">Faster XP Popup</span>: Reduced display time from 1.5s to 1s</li>
+                  <li><span className="font-bold">Menu Button Fix</span>: Now properly returns to main menu after level</li>
                   <li><span className="font-bold">Patch Notes</span>: All updates now include timestamps</li>
                 </ul>
               </div>
