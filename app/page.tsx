@@ -941,7 +941,7 @@ export default function SpeedryConquest() {
           onClaim={handleClaimDailyReward}
           onClose={() => setShowDailyReward(false)}
           onRepair={handleStreakRepair}
-          theme={currentTheme}
+          theme={currentTheme.theme}
         />
       )}
 
