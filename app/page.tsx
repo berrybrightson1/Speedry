@@ -50,30 +50,70 @@ type RoomData = {
   currentDeck?: string[] // Shared deck for fairness
 }
 
-// THEME CONFIGURATION
+// THEME CONFIGURATION - SEASON SYSTEM (9 Levels per Season)
 const THEMES = [
   {
     name: "The Awakening",
+    seasonNumber: 1,
+    levelRange: [1, 9],
     icons: ['fa-leaf', 'fa-tree', 'fa-paw', 'fa-dog', 'fa-cat', 'fa-dove', 'fa-frog', 'fa-carrot'],
     bgGradient: "from-slate-900 to-emerald-950",
     particleColor: "bg-emerald-500",
-    accent: "text-emerald-400"
+    accent: "text-emerald-400",
+    primaryColor: "#10b981",
+    secondaryColor: "#059669"
   },
   {
     name: "The City",
+    seasonNumber: 2,
+    levelRange: [10, 18],
     icons: ['fa-city', 'fa-car', 'fa-bus', 'fa-building', 'fa-road', 'fa-traffic-light', 'fa-bicycle', 'fa-plane'],
     bgGradient: "from-blue-950 to-slate-900",
     particleColor: "bg-blue-500",
-    accent: "text-blue-400"
+    accent: "text-blue-400",
+    primaryColor: "#3b82f6",
+    secondaryColor: "#2563eb"
   },
   {
     name: "The Inferno",
+    seasonNumber: 3,
+    levelRange: [19, 27],
     icons: ['fa-dragon', 'fa-fire', 'fa-skull', 'fa-ghost', 'fa-hat-wizard', 'fa-scroll', 'fa-ring', 'fa-crown'],
     bgGradient: "from-orange-950 to-red-950",
     particleColor: "bg-amber-500",
-    accent: "text-amber-400"
+    accent: "text-amber-400",
+    primaryColor: "#f59e0b",
+    secondaryColor: "#d97706"
+  },
+  {
+    name: "The Cosmos",
+    seasonNumber: 4,
+    levelRange: [28, 36],
+    icons: ['fa-star', 'fa-moon', 'fa-sun', 'fa-rocket', 'fa-meteor', 'fa-satellite', 'fa-atom', 'fa-galaxy'],
+    bgGradient: "from-indigo-950 to-purple-950",
+    particleColor: "bg-purple-500",
+    accent: "text-purple-400",
+    primaryColor: "#8b5cf6",
+    secondaryColor: "#7c3aed"
   }
 ]
+
+// Helper: Get current season information
+const getCurrentSeason = (level: number) => {
+  const seasonIndex = Math.floor((level - 1) / 9)
+  const theme = THEMES[seasonIndex % THEMES.length]
+  const progressInSeason = ((level - 1) % 9) + 1 // 1-9
+
+  return {
+    seasonNumber: seasonIndex + 1,
+    themeName: theme.name,
+    progress: progressInSeason,
+    total: 9,
+    percentage: (progressInSeason / 9) * 100,
+    theme: theme,
+    nextSeasonAt: (seasonIndex + 1) * 9 + 1
+  }
+}
 
 // Helper to generate consistent decks
 const generateDeck = (level: number) => {
@@ -598,15 +638,15 @@ export default function SpeedryConquest() {
             onMenu={() => setScreen("menu")}
           />
         )}
-        {/* HELP BUTTON (Bubbling Around Screen) */}
+        {/* HELP BUTTON (Fixed Dramatic Position) */}
         {!showHelp && !showGlobalStore && screen === "menu" && (
           <button
             onClick={() => {
               setHelpTab("guide")
               setShowHelp(true)
             }}
-            className="fixed z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-2xl border-2 border-white/50 text-[#8b5cf6] hover:scale-125 hover:rotate-12 transition-all animate-[bubbleAround_20s_linear_infinite]"
-            style={{ willChange: 'top, left' }}
+            className="fixed top-20 right-4 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-4 rounded-full shadow-2xl border-2 border-white/50 text-white hover:scale-110 hover:rotate-6 transition-all animate-[dramaticPulse_2s_ease-in-out_infinite]"
+            style={{ boxShadow: '0 0 25px rgba(139, 92, 246, 0.6), 0 0 50px rgba(139, 92, 246, 0.3)' }}
             aria-label="Help"
           >
             <HelpCircle className="w-6 h-6" />
@@ -649,12 +689,9 @@ export default function SpeedryConquest() {
           50% { transform: translateY(-10px) rotate(5deg); }
           100% { transform: translateY(0px) rotate(0deg); }
         }
-        @keyframes bubbleAround {
-          0% { top: 5%; left: 5%; transform: scale(1); }
-          25% { top: 5%; left: 85%; transform: scale(1.1) rotate(10deg); }
-          50% { top: 85%; left: 85%; transform: scale(1); }
-          75% { top: 85%; left: 5%; transform: scale(1.1) rotate(-10deg); }
-          100% { top: 5%; left: 5%; transform: scale(1); }
+        @keyframes dramaticPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(139, 92, 246, 0.6), 0 0 50px rgba(139, 92, 246, 0.3); }
+          50% { transform: scale(1.1); box-shadow: 0 0 35px rgba(139, 92, 246, 0.8), 0 0 70px rgba(139, 92, 246, 0.5); }
         }
       `}</style>
     </div>
@@ -1162,9 +1199,9 @@ function GameScreen({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [isPaused, activateCheat])
 
-  // Determine Theme based on Loop
-  const themeIndex = Math.floor(((level - 1) % 30) / 10)
-  const currentTheme = THEMES[themeIndex] || THEMES[0]
+  // Determine Theme based on Season (9 levels per season)
+  const themeIndex = Math.floor((level - 1) / 9)
+  const currentTheme = THEMES[themeIndex % THEMES.length] || THEMES[0]
 
   useEffect(() => {
     // Select icons from theme
@@ -1638,42 +1675,7 @@ function GameScreen({
           </div>
         )}
 
-        {/* LEVEL COMPLETE MODAL */}
-        {levelCompleted && !showXpPopup && (
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
-              <div className="flex justify-center mb-4">
-                <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
-                  <Trophy className="h-12 w-12 text-emerald-600" />
-                </div>
-              </div>
-              <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
-              <p className="text-slate-600 text-base font-bold mb-6 text-center">
-                Awesome work! Ready for the next challenge?
-              </p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onLevelUp(level + 1)
-                  }}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
-                >
-                  NEXT LEVEL →
-                </button>
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onBack()
-                  }}
-                  className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
-                >
-                  Back to Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* LEVEL COMPLETE - NO MODAL, JUST BUTTON STATE CHANGE */}
 
         <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between">
@@ -1741,30 +1743,54 @@ function GameScreen({
           </button>
         </div>
 
-        <div className="flex rounded-xl overflow-hidden shadow-md mb-2">
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            className={`flex-1 font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
-              ? isFireMode
-                ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
-                : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
-              : isFireMode
-                ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
-                : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
-              }`}
-          >
-            {!isPaused ? (
-              <>
-                <Pause className="h-6 w-6 fill-white" />
-                PAUSE
-              </>
-            ) : (
-              <>
-                <Play className="h-6 w-6 fill-white" />
-                PLAY
-              </>
-            )}
-          </button>
+        <div className="flex gap-2 mb-2">
+          {!levelCompleted ? (
+            <button
+              onClick={() => setIsPaused(!isPaused)}
+              className={`flex-1 rounded-xl shadow-md font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${!isPaused
+                ? isFireMode
+                  ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
+                  : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
+                : isFireMode
+                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
+                  : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
+                }`}
+            >
+              {!isPaused ? (
+                <>
+                  <Pause className="h-6 w-6 fill-white" />
+                  PAUSE
+                </>
+              ) : (
+                <>
+                  <Play className="h-6 w-6 fill-white" />
+                  PLAY
+                </>
+              )}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setLevelCompleted(false)
+                  onLevelUp(level + 1)
+                }}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <Trophy className="h-5 w-5" />
+                GGs NEXT LEVEL
+              </button>
+              <button
+                onClick={() => {
+                  setLevelCompleted(false)
+                  onBack()
+                }}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base px-6 py-4 rounded-xl transition-all hover:scale-105"
+              >
+                MENU
+              </button>
+            </>
+          )}
         </div>
 
         <div className="mt-12 pt-8">
@@ -1844,6 +1870,9 @@ function ModeCarousel({
   })
   const [selectedIndex, setSelectedIndex] = useState(0)
 
+  // Calculate season info for progress display
+  const seasonInfo = getCurrentSeason(bestLevel)
+
   // Auto-slide effect
   useEffect(() => {
     if (!emblaApi) return
@@ -1910,7 +1939,7 @@ function ModeCarousel({
               </div>
             </div>
 
-            {/* SLIDE 2: JOURNEY */}
+            {/* SLIDE 2: JOURNEY WITH SEASON PROGRESS */}
             <div className="flex-[0_0_100%] min-w-0 relative">
               <button
                 onClick={onContinue}
@@ -1929,20 +1958,27 @@ function ModeCarousel({
                   <ChevronRight className="w-6 h-6 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
                 </div>
 
-                {/* Progress Bar Visual */}
-                <div className="w-full mt-4 bg-black/20 h-3 rounded-full overflow-hidden relative">
-                  <div
-                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                    style={{ width: `${Math.min(100, (xp % 100))}%` }}
-                  />
-                </div>
-                <div className="w-full flex justify-between mt-2 text-xs font-bold text-purple-100 px-1">
-                  <span>{xp} XP</span>
-                  <span>NEXT RANK</span>
+                {/* SEASON PROGRESS BAR */}
+                <div className="w-full mt-3 space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <p className="text-xs font-bold text-purple-100">{seasonInfo.themeName}</p>
+                    <p className="text-xs font-bold text-purple-100">{seasonInfo.progress}/9</p>
+                  </div>
+                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden relative border border-white/10">
+                    <div
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
+                      style={{ width: `${seasonInfo.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-center">
+                    <p className="text-[10px] font-semibold text-purple-200">
+                      {seasonInfo.progress === 9 ? "🎉 Season Complete! Next: " + (THEMES[(Math.floor((bestLevel - 1) / 9) + 1) % THEMES.length]?.name || "New Season") : `${9 - seasonInfo.progress} levels until next season`}
+                    </p>
+                  </div>
                 </div>
               </button>
               <div className="absolute top-16 right-4 bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 shadow-sm z-10 w-fit">
-                <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Resume</span>
+                <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Season {seasonInfo.seasonNumber}</span>
               </div>
             </div>
           </div>
@@ -2820,11 +2856,19 @@ function HelpModal({
                 </p>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
-                <h3 className="font-bold text-slate-800 text-sm mb-1">🔥 The Hot Hand</h3>
-                <p className="text-slate-500 text-xs">
-                  Type the element of heat to unlock unlimited power...
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-2xl shadow-sm border-2 border-orange-200 hover:border-orange-400 transition-all">
+                <h3 className="font-bold text-orange-800 text-sm mb-2 flex items-center gap-2">
+                  <Flame className="w-4 h-4 fill-orange-500" />
+                  🔥 The Hot Hand
+                </h3>
+                <p className="text-slate-700 text-xs leading-relaxed mb-2">
+                  Type <span className="font-black text-orange-600 bg-orange-100 px-2 py-0.5 rounded">FIREMODE</span> while the game is paused to unlock unlimited power!
                 </p>
+                <div className="bg-white/50 p-2 rounded-lg mt-2">
+                  <p className="text-[10px] text-slate-600 font-semibold">
+                    ⚡ <span className="font-black">Rewards:</span> Warp to Level 20 + 200 XP bonus (Once per 24h)
+                  </p>
+                </div>
               </div>
 
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 opacity-80 hover:opacity-100 transition-opacity">
@@ -2847,20 +2891,34 @@ function HelpModal({
             <div className="space-y-6">
               <div className="relative pl-4 border-l-2 border-emerald-500">
                 <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <h3 className="font-black text-slate-800 text-lg">v2.1 - The Help Update</h3>
-                <p className="text-emerald-600 text-xs font-bold mb-2">Current Version</p>
+                <h3 className="font-black text-slate-800 text-lg">v2.2 - Season & UX Update</h3>
+                <p className="text-emerald-600 text-xs font-bold mb-1">Current Version</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:04 AM</p>
                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
-                  <li><span className="font-bold">Global Help Center</span>: You're looking at it!</li>
-                  <li><span className="font-bold">UI Polish</span>: Cleaner Carousel & Menus.</li>
-                  <li><span className="font-bold">XP Store</span>: Now accessible from home screen.</li>
-                  <li><span className="font-bold">Cheats</span>: Updated hints logic.</li>
+                  <li><span className="font-bold">Season System</span>: 9 levels per themed season with progress tracking</li>
+                  <li><span className="font-bold">Enhanced Guide</span>: Clear FIREMODE cheat instructions in Secrets tab</li>
+                  <li><span className="font-bold">Simplified Level Complete</span>: Removed popup, clean button transitions</li>
+                  <li><span className="font-bold">Help Bubble</span>: Repositioned to top-right with dramatic glow effect</li>
+                  <li><span className="font-bold">Patch Notes</span>: All updates now include timestamps</li>
+                </ul>
+              </div>
+
+              <div className="relative pl-4 border-l-2 border-slate-300">
+                <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-slate-300" />
+                <h3 className="font-bold text-slate-500 text-base">v2.1 - The Help Update</h3>
+                <p className="text-slate-400 text-[10px] font-semibold mb-2">📅 January 2, 2026</p>
+                <ul className="list-disc list-inside text-sm text-slate-500 space-y-1">
+                  <li>Global Help Center & Game Guide</li>
+                  <li>UI Polish: Cleaner Carousel & Menus</li>
+                  <li>XP Store accessible from home screen</li>
+                  <li>Updated hints logic</li>
                 </ul>
               </div>
 
               <div className="relative pl-4 border-l-2 border-slate-300">
                 <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-slate-300" />
                 <h3 className="font-bold text-slate-500 text-base">v2.0 - Global Reset</h3>
-                <p className="text-slate-400 text-xs font-semibold mb-2">Previous</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-2">📅 January 1, 2026</p>
                 <ul className="list-disc list-inside text-sm text-slate-500 space-y-1">
                   <li>Economy Reset & Rebalance</li>
                   <li>Looping Theme System (1-30)</li>
