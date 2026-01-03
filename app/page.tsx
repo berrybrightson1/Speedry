@@ -925,7 +925,7 @@ function MenuScreen({
 
 
       <div className="text-center text-[#64748b] text-sm font-semibold mt-4">Developer Rebry Creatives</div>
-    </div >
+    </div>
   )
 
 }
@@ -967,7 +967,7 @@ function LevelSelectScreen({
       >
         BACK TO MENU
       </Button>
-    </div >
+    </div>
   )
 }
 
@@ -1482,17 +1482,9 @@ function GameScreen({
   }
 
   return (
-    <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `bg-gradient-to-b ${currentTheme.bgGradient} mobile-full-screen`} `}>
+    <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden duration-1000 ${isFireMode ? "fire-bg" : `md:bg-gradient-to-b ${currentTheme.bgGradient}`} `}>
       {fireAnimation}
-      <style jsx global>{`
-/* Special Override specifically for mobile full bleed */
-  @media(max - width: 768px) {
-          .mobile - full - screen {
-      background: none!important; /* Let inner container handle bg */
-    }
-  }
-  `}</style>
-      <div className={`w - full h - full md: h - auto md: max - w - sm md: rounded - 2xl p - 4 md: shadow - xl transition - all duration - 1000 flex flex - col ${ isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100" } `}>
+      <div className={`w-full h-full md:h-auto md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 flex flex-col ${ isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100" } `}>
         {showXpPopup && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
             +{xpPopupAmount} XP!
@@ -1521,150 +1513,161 @@ function GameScreen({
           </button>
 
           {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
-          {/* Mobile Cheat Trigger (Visible ONLY when paused) */}
-          {/* Mobile Cheat Trigger (Always visible or removed? Keep for now) */}
-          {false && (
-            <button
-              onClick={() => {
-                setCheatInputValue("")
-                setShowCheatInput(true)
-              }}
-              className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full backdrop-blur-sm transition-all animate-pulse"
-            >
-              <Target className="h-4 w-4" />
-            </button>
-          )}
+{/* Mobile Cheat Trigger (Visible ONLY when paused) */ }
+{/* Mobile Cheat Trigger (Always visible or removed? Keep for now) */ }
+{
+  false && (
+    <button
+      onClick={() => {
+        setCheatInputValue("")
+        setShowCheatInput(true)
+      }}
+      className="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full backdrop-blur-sm transition-all animate-pulse"
+    >
+      <Target className="h-4 w-4" />
+    </button>
+  )
+}
 
-          <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap">
-              {xp} XP
-            </div>
-            <button
-              onClick={onOpenStore}
-              className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white rounded-xl p-2 shadow-md transition-all hover:scale-110"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+<div className="flex items-center gap-2">
+  <div className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap">
+    {xp} XP
+  </div>
+  <button
+    onClick={onOpenStore}
+    className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white rounded-xl p-2 shadow-md transition-all hover:scale-110"
+  >
+    <Plus className="h-4 w-4" />
+  </button>
+</div>
+
+{/* CHEAT INPUT MODAL */ }
+{
+  showCheatInput && (
+    <CheatInputModal
+      onClose={() => setShowCheatInput(false)}
+      onActivate={(code) => activateCheat(code)}
+    />
+  )
+}
+
+{/* RESET CONFIRMATION MODAL */ }
+{
+  showResetConfirm && (
+    <ResetConfirmModal
+      onConfirm={handleResetConfirm}
+      onCancel={() => setShowResetConfirm(false)}
+    />
+  )
+}
+
+{
+  showEndGame && (
+    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+      <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
+        <h3 className="text-[#1e293b] text-2xl font-black mb-4 text-center">End Current Game?</h3>
+        <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Your progress will be lost</p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowEndGame(false)}
+            className="flex-1 bg-gradient-to-r from-[#cbd5e1] to-[#94a3b8] hover:from-[#94a3b8] hover:to-[#64748b] text-white font-black text-lg py-3 rounded-xl transition-all"
+          >
+            CANCEL
+          </button>
+          <button
+            onClick={() => {
+              setShowEndGame(false)
+              // Instead of reloading, navigate to menu
+              onBack()
+              // If onGameOver is provided, call it as well
+              onGameOver && onGameOver()
+            }}
+            className="flex-1 bg-gradient-to-r from-[#ef4444] to-[#dc2626] hover:from-[#dc2626] hover:to-[#b91c1c] text-white font-black text-lg py-3 rounded-xl transition-all"
+          >
+            END GAME
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+{
+  showTimedOut && (
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+      <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
+        <div className="flex justify-center mb-4">
+          <div className="bg-red-100 p-3 rounded-full">
+            <Clock className="h-10 w-10 text-red-600" />
           </div>
         </div>
+        <h3 className="text-[#1e293b] text-2xl font-black mb-2 text-center">Time's Up!</h3>
+        <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Keep practicing to improve your speed</p>
+        <div className="flex gap-3">
+          <button
+            onClick={handleRetryLevel}
+            className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-lg py-3 rounded-xl shadow-xl h-auto transition-all hover:scale-105"
+          >
+            TRY AGAIN
+          </button>
+          <button
+            onClick={() => {
+              setShowTimedOut(false)
+              onBack()
+            }}
+            className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all hover:scale-105"
+          >
+            QUIT
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* CHEAT INPUT MODAL */}
-        {showCheatInput && (
-          <CheatInputModal
-            onClose={() => setShowCheatInput(false)}
-            onActivate={(code) => activateCheat(code)}
-          />
-        )}
-
-        {/* RESET CONFIRMATION MODAL */}
-        {showResetConfirm && (
-          <ResetConfirmModal
-            onConfirm={handleResetConfirm}
-            onCancel={() => setShowResetConfirm(false)}
-          />
-        )}
-
-        {showEndGame && (
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
-              <h3 className="text-[#1e293b] text-2xl font-black mb-4 text-center">End Current Game?</h3>
-              <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Your progress will be lost</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowEndGame(false)}
-                  className="flex-1 bg-gradient-to-r from-[#cbd5e1] to-[#94a3b8] hover:from-[#94a3b8] hover:to-[#64748b] text-white font-black text-lg py-3 rounded-xl transition-all"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEndGame(false)
-                    // Instead of reloading, navigate to menu
-                    onBack()
-                    // If onGameOver is provided, call it as well
-                    onGameOver && onGameOver()
-                  }}
-                  className="flex-1 bg-gradient-to-r from-[#ef4444] to-[#dc2626] hover:from-[#dc2626] hover:to-[#b91c1c] text-white font-black text-lg py-3 rounded-xl transition-all"
-                >
-                  END GAME
-                </button>
-              </div>
-            </div>
+{/* LEVEL COMPLETE MODAL */ }
+{
+  levelCompleted && !showXpPopup && (
+    <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
+      <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
+        <div className="flex justify-center mb-4">
+          <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
+            <Trophy className="h-12 w-12 text-emerald-600" />
           </div>
-        )}
-
-        {showTimedOut && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out]">
-              <div className="flex justify-center mb-4">
-                <div className="bg-red-100 p-3 rounded-full">
-                  <Clock className="h-10 w-10 text-red-600" />
-                </div>
-              </div>
-              <h3 className="text-[#1e293b] text-2xl font-black mb-2 text-center">Time's Up!</h3>
-              <p className="text-[#64748b] text-sm font-semibold mb-6 text-center">Keep practicing to improve your speed</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleRetryLevel}
-                  className="flex-1 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white font-black text-lg py-3 rounded-xl shadow-xl h-auto transition-all hover:scale-105"
-                >
-                  TRY AGAIN
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTimedOut(false)
-                    onBack()
-                  }}
-                  className="flex-1 bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black text-lg py-3 rounded-xl transition-all hover:scale-105"
-                >
-                  QUIT
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* LEVEL COMPLETE MODAL */}
-        {levelCompleted && !showXpPopup && (
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/90 to-teal-950/90 backdrop-blur-md z-50 rounded-3xl flex items-center justify-center p-6 animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full transform animate-[scaleIn_0.3s_ease-out] border-4 border-emerald-400">
-              <div className="flex justify-center mb-4">
-                <div className="bg-emerald-100 p-4 rounded-full animate-bounce">
-                  <Trophy className="h-12 w-12 text-emerald-600" />
-                </div>
-              </div>
-              <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
-              <p className="text-slate-600 text-base font-bold mb-6 text-center">
-                Awesome work! Ready for the next challenge?
-              </p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onLevelUp(level + 1)
-                  }}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
-                >
-                  NEXT LEVEL →
-                </button>
-                <button
-                  onClick={() => {
-                    setLevelCompleted(false)
-                    onBack()
-                  }}
-                  className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
-                >
-                  Back to Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+        <h2 className="text-emerald-600 text-3xl font-black mb-2 text-center">LEVEL COMPLETE!</h2>
+        <p className="text-slate-600 text-base font-bold mb-6 text-center">
+          Awesome work! Ready for the next challenge?
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setLevelCompleted(false)
+              onLevelUp(level + 1)
+            }}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg py-4 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
+          >
+            NEXT LEVEL →
+          </button>
+          <button
+            onClick={() => {
+              setLevelCompleted(false)
+              onBack()
+            }}
+            className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base py-3 rounded-xl transition-all"
+          >
+            Back to Menu
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
         <div className="bg-white rounded-xl p-3 mb-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`${ isFireMode ? "bg-gradient-to-br from-red-500 to-orange-600" : "bg-gradient-to-br from-[#3b82f6] to-[#2563eb]" } rounded - lg p - 2 shadow - sm`}>
+              <div className={`${ isFireMode ? "bg-gradient-to-br from-red-500 to-orange-600" : "bg-gradient-to-br from-[#3b82f6] to-[#2563eb]" } rounded-lg p-2 shadow-sm`}>
                 <Zap className="h-5 w-5 text-white fill-white" />
               </div>
               <div className="flex flex-col">
@@ -1678,7 +1681,7 @@ function GameScreen({
             {/* TIMER MOVED HERE */}
             <div className="flex flex-col items-center min-w-[4rem]">
               <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-0.5">TIME</div>
-              <div className={`text - xl font - black ${ timeLeft < 10 ? "text-red-500 animate-pulse" : isFireMode ? "text-orange-600 drop-shadow-sm" : "text-[#1e293b]" } `}>
+              <div className={`text-xl font-black ${ timeLeft < 10 ? "text-red-500 animate-pulse" : isFireMode ? "text-orange-600 drop-shadow-sm" : "text-[#1e293b]" } `}>
                 {Math.floor(timeLeft / 60)}:{Math.floor(timeLeft % 60).toString().padStart(2, "0")}
               </div>
             </div>
@@ -1690,7 +1693,7 @@ function GameScreen({
                 <div className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider">LEVEL</div>
                 <div className="text-[#64748b] text-[10px] font-semibold">XP Boost at {level + 1}</div>
               </div>
-              <div className={`${ isFireMode ? "bg-gradient-to-br from-red-600 to-orange-600 animate-pulse border border-yellow-400" : "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed]" } rounded - lg p - 2 shadow - sm min - w - [2.5rem] flex items - center justify - center`}>
+              <div className={`${ isFireMode ? "bg-gradient-to-br from-red-600 to-orange-600 animate-pulse border border-yellow-400" : "bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed]" } rounded-lg p-2 shadow-sm min-w - [2.5rem] flex items-center justify-center`}>
                 <div className="text-white text-2xl font-black">{level}</div>
               </div>
             </div>
@@ -1710,7 +1713,7 @@ function GameScreen({
           <button
             onClick={() => handleHint(10, 1)}
             disabled={xp < 10 || hintTimeLeft !== null || isPaused}
-            className={`flex - 1 rounded - xl shadow - md ${ isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]" } disabled: from - slate - 300 disabled: to - slate - 400 text - white font - black text - xs py - 3 transition - all flex items - center justify - center gap - 1.5 disabled: cursor - not - allowed`}
+            className={`flex-1 rounded-xl shadow-md ${ isFireMode ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9]" } disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
           >
             <Zap className="h-3.5 w-3.5" />
             {hintTimeLeft !== null ? `VISIBLE(${ hintTimeLeft }s)` : "HINT (10 XP)"}
@@ -1720,7 +1723,7 @@ function GameScreen({
           <button
             onClick={() => handleHint(50, 2)}
             disabled={xp < 50 || hintTimeLeft !== null || isPaused}
-            className={`flex - 1 rounded - xl shadow - md ${ isFireMode ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-yellow-400" : "bg-gradient-to-r from-[#ec4899] to-[#db2777] hover:from-[#db2777] hover:to-[#be185d] border border-pink-300" } disabled: border - none disabled: from - slate - 300 disabled: to - slate - 400 text - white font - black text - xs py - 3 transition - all flex items - center justify - center gap - 1.5 disabled: cursor - not - allowed`}
+            className={`flex-1 rounded-xl shadow-md ${ isFireMode ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-yellow-400" : "bg-gradient-to-r from-[#ec4899] to-[#db2777] hover:from-[#db2777] hover:to-[#be185d] border border-pink-300" } disabled:border-none disabled:from-slate-300 disabled:to-slate-400 text-white font-black text-xs py-3 transition-all flex items-center justify-center gap-1.5 disabled:cursor-not-allowed`}
           >
             <Zap className="h-3.5 w-3.5 fill-white" />
             SUPER (50 XP)
@@ -1730,7 +1733,7 @@ function GameScreen({
         <div className="flex rounded-xl overflow-hidden shadow-md mb-2">
           <button
             onClick={() => setIsPaused(!isPaused)}
-            className={`flex - 1 font - black text - lg py - 3 transition - all duration - 300 flex items - center justify - center gap - 2 ${
+            className={`flex-1 font-black text-lg py-3 transition-all duration-300 flex items-center justify-center gap-2 ${
     !isPaused
       ? isFireMode
         ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
@@ -1757,8 +1760,8 @@ function GameScreen({
         <div className="mt-12 pt-8">
           <p className="text-[#64748b] text-sm font-semibold text-center">Developer Rebry Creatives</p>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }
 
@@ -1920,7 +1923,7 @@ function ModeCarousel({
                 <div className="w-full mt-4 bg-black/20 h-3 rounded-full overflow-hidden relative">
                   <div
                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                    style={{ width: `${ Math.min(100, (xp % 100)) }% ` }}
+                    style={{ width: `${Math.min(100, (xp % 100))}% ` }}
                   />
                 </div>
                 <div className="w-full flex justify-between mt-2 text-xs font-bold text-purple-100 px-1">
@@ -1942,12 +1945,11 @@ function ModeCarousel({
           <button
             key={index}
             onClick={() => emblaApi?.scrollTo(index)}
-            className={`w - 2.5 h - 2.5 rounded - full transition - all duration - 300 shadow - sm ${
-    selectedIndex === index
-      ? "bg-slate-800 w-6"
-      : "bg-slate-300 hover:bg-slate-400"
-  } `}
-            aria-label={`Go to slide ${ index + 1 } `}
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-sm ${selectedIndex === index
+              ? "bg-slate-800 w-6"
+              : "bg-slate-300 hover:bg-slate-400"
+              } `}
+            aria-label={`Go to slide ${index + 1} `}
           />
         ))}
       </div>
@@ -1973,7 +1975,7 @@ function LobbyScreen({
   const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    const roomRef = ref(database, `rooms / ${ roomId } `)
+    const roomRef = ref(database, `rooms/${roomId} `)
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val() as RoomData
       setRoomData(data)
@@ -1989,7 +1991,7 @@ function LobbyScreen({
   const handleToggleReady = async () => {
     const newReadyState = !isReady
     setIsReady(newReadyState)
-    await update(ref(database, `rooms / ${ roomId } /players/${ playerId } `), {
+    await update(ref(database, `rooms/${roomId} /players/${playerId} `), {
       isReady: newReadyState,
     })
   }
@@ -1997,125 +1999,125 @@ function LobbyScreen({
   const handleStartMatch = async () => {
     // Reset Levels to 1 for Tournament
     const updates: any = {
-      [`rooms / ${ roomId }/gameState`]: "playing",
-    [`rooms/${roomId}/tournament`]: {
-    round: 1,
-      scores: { [playerId]: 0, [Object.keys(roomData?.players || {}).find(p => p !== playerId)!]: 0 },
-    activePlayerId: playerId, // Host starts?
-      status: "playing",
+      [`rooms/${roomId}/gameState`]: "playing",
+      [`rooms/${roomId}/tournament`]: {
+        round: 1,
+        scores: { [playerId]: 0, [Object.keys(roomData?.players || {}).find(p => p !== playerId)!]: 0 },
+        activePlayerId: playerId, // Host starts?
+        status: "playing",
         roundStartTime: Date.now()
+      }
+    }
+    // Also reset individual players to Level 1
+    Object.keys(roomData?.players || {}).forEach(pid => {
+      updates[`rooms/${roomId}/players/${pid}/currentLevel`] = 1
+      updates[`rooms/${roomId}/players/${pid}/lives`] = 3 // Reset lives too?
+    })
+
+    await update(ref(database), updates)
   }
-}
-// Also reset individual players to Level 1
-Object.keys(roomData?.players || {}).forEach(pid => {
-  updates[`rooms/${roomId}/players/${pid}/currentLevel`] = 1
-  updates[`rooms/${roomId}/players/${pid}/lives`] = 3 // Reset lives too?
-})
 
-await update(ref(database), updates)
-  }
+  const playersList = roomData ? Object.entries(roomData.players) : []
+  // Robust host check: use hostId if available, fallback to first player
+  const isHost = roomData?.hostId === playerId || (!roomData?.hostId && playersList[0]?.[0] === playerId)
+  const canStart = playersList.length === 2 && playersList.every(([_, p]) => p.isReady)
 
-const playersList = roomData ? Object.entries(roomData.players) : []
-// Robust host check: use hostId if available, fallback to first player
-const isHost = roomData?.hostId === playerId || (!roomData?.hostId && playersList[0]?.[0] === playerId)
-const canStart = playersList.length === 2 && playersList.every(([_, p]) => p.isReady)
+  return (
+    <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-black text-[#1e293b] mb-2">GAME LOBBY</h1>
+        <p className="text-sm text-[#64748b] font-semibold">
+          Room ID: <span className="font-mono text-[#3b82f6] text-lg bg-white px-2 py-1 rounded-md shadow-sm ml-1 select-all">{roomData?.matchCode || roomId}</span>
+        </p>
+      </div>
 
-return (
-  <div className="bg-gradient-to-br from-[#e0e7ff] to-[#f0f4ff] rounded-3xl p-8 shadow-2xl">
-    <div className="text-center mb-8">
-      <h1 className="text-4xl font-black text-[#1e293b] mb-2">GAME LOBBY</h1>
-      <p className="text-sm text-[#64748b] font-semibold">
-        Room ID: <span className="font-mono text-[#3b82f6] text-lg bg-white px-2 py-1 rounded-md shadow-sm ml-1 select-all">{roomData?.matchCode || roomId}</span>
-      </p>
-    </div>
-
-    <div className="space-y-4 mb-8">
-      {playersList.map(([id, player], index) => (
-        <div key={id} className="bg-white rounded-2xl p-6 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-full flex items-center justify-center relative">
-              <Users className="w-7 h-7 text-white" />
-              {roomData?.hostId === id && (
-                <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1 border-2 border-white" title="Host">
-                  <Trophy className="w-3 h-3 text-white" />
+      <div className="space-y-4 mb-8">
+        {playersList.map(([id, player], index) => (
+          <div key={id} className="bg-white rounded-2xl p-6 flex items-center justify-between shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-full flex items-center justify-center relative">
+                <Users className="w-7 h-7 text-white" />
+                {roomData?.hostId === id && (
+                  <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1 border-2 border-white" title="Host">
+                    <Trophy className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-black text-lg text-[#1e293b]">
+                  {id === playerId ? "You" : player.name || `Player ${index + 1}`}
+                </p>
+                <p className="text-sm text-[#64748b] font-semibold">
+                  {player.lives} Lives â€¢ Level {player.currentLevel}
+                </p>
+              </div>
+            </div>
+            <div>
+              {player.isReady ? (
+                <div className="flex items-center gap-2 bg-[#10b981] text-white px-4 py-2 rounded-full font-bold shadow-sm animate-in zoom-in">
+                  <Check className="w-5 h-5" />
+                  READY
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-[#fbbf24] text-white px-4 py-2 rounded-full font-bold shadow-sm">
+                  <Clock className="w-5 h-5" />
+                  WAITING
                 </div>
               )}
             </div>
-            <div>
-              <p className="font-black text-lg text-[#1e293b]">
-                {id === playerId ? "You" : player.name || `Player ${index + 1}`}
-              </p>
-              <p className="text-sm text-[#64748b] font-semibold">
-                {player.lives} Lives â€¢ Level {player.currentLevel}
-              </p>
+          </div>
+        ))}
+
+        {playersList.length < 2 && (
+          <div className="bg-white/50 rounded-2xl p-6 flex items-center justify-center border-2 border-dashed border-[#cbd5e1] animate-pulse">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 text-[#64748b] animate-spin mx-auto mb-2" />
+              <p className="text-[#64748b] font-bold">Waiting for opponent to join...</p>
+              <p className="text-xs text-[#94a3b8] mt-1">Share the Match Code above</p>
             </div>
           </div>
-          <div>
-            {player.isReady ? (
-              <div className="flex items-center gap-2 bg-[#10b981] text-white px-4 py-2 rounded-full font-bold shadow-sm animate-in zoom-in">
-                <Check className="w-5 h-5" />
-                READY
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-[#fbbf24] text-white px-4 py-2 rounded-full font-bold shadow-sm">
-                <Clock className="w-5 h-5" />
-                WAITING
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+        )}
+      </div>
 
-      {playersList.length < 2 && (
-        <div className="bg-white/50 rounded-2xl p-6 flex items-center justify-center border-2 border-dashed border-[#cbd5e1] animate-pulse">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 text-[#64748b] animate-spin mx-auto mb-2" />
-            <p className="text-[#64748b] font-bold">Waiting for opponent to join...</p>
-            <p className="text-xs text-[#94a3b8] mt-1">Share the Match Code above</p>
-          </div>
-        </div>
-      )}
-    </div>
-
-    <div className="space-y-3">
-      <Button
-        onClick={handleToggleReady}
-        className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${isReady
-          ? "bg-[#64748b] hover:bg-[#475569] text-white"
-          : "bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white"
-          }`}
-      >
-        {isReady ? "NOT READY" : "I'M READY!"}
-      </Button>
-
-      {isHost && (
+      <div className="space-y-3">
         <Button
-          onClick={handleStartMatch}
-          disabled={!canStart}
-          className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${canStart
-            ? "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:scale-[1.02] animate-pulse"
-            : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}
+          onClick={handleToggleReady}
+          className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${isReady
+            ? "bg-[#64748b] hover:bg-[#475569] text-white"
+            : "bg-gradient-to-r from-[#10b981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white"
+            }`}
         >
-          START MATCH
+          {isReady ? "NOT READY" : "I'M READY!"}
         </Button>
-      )}
 
-      {!isHost && isReady && canStart && (
-        <div className="text-center text-[#64748b] font-bold animate-pulse">
-          Waiting for Host to start...
-        </div>
-      )}
+        {isHost && (
+          <Button
+            onClick={handleStartMatch}
+            disabled={!canStart}
+            className={`w-full font-black text-xl py-7 rounded-2xl shadow-lg h-auto transition-all ${canStart
+              ? "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:scale-[1.02] animate-pulse"
+              : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}
+          >
+            START MATCH
+          </Button>
+        )}
 
-      <Button
-        onClick={onBack}
-        variant="outline"
-        className="w-full font-bold text-lg py-6 rounded-2xl h-auto border-2 bg-transparent mt-2"
-      >
-        LEAVE LOBBY
-      </Button>
+        {!isHost && isReady && canStart && (
+          <div className="text-center text-[#64748b] font-bold animate-pulse">
+            Waiting for Host to start...
+          </div>
+        )}
+
+        <Button
+          onClick={onBack}
+          variant="outline"
+          className="w-full font-bold text-lg py-6 rounded-2xl h-auto border-2 bg-transparent mt-2"
+        >
+          LEAVE LOBBY
+        </Button>
+      </div>
     </div>
-  </div>
-)
+  )
 }
 
 function MultiplayerGameScreen({
