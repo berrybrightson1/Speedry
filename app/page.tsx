@@ -1237,7 +1237,7 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
           </div>
 
           {/* Streak Calendar */}
-          <div className="grid grid-cols-4 gap-2 w-full mb-6 relative z-10">
+          <div className="grid grid-cols-4 gap-2 w-full mb-5 relative z-10">
             {DAILY_REWARDS.map((reward, idx) => {
               const dayNum = idx + 1
               const isCompleted = dayNum <= rewardStatus.streak
@@ -1254,7 +1254,7 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
                     }`}
                   style={{
                     borderColor: isCompleted ? theme.colors.textSecondary : undefined,
-                    gridColumn: idx === 6 ? 'span 4' : 'span 1', // Day 7 is wide bar at bottom
+                    gridColumn: idx === 6 ? 'span 2' : 'span 1', // Day 7 spans 2 cols on the last row
                   }}
                 >
                   <div className={`text-[9px] font-black uppercase ${isCompleted ? 'text-emerald-700' : isCurrent ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -1275,7 +1275,7 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
           <div className="w-full relative z-10">
             {isRepairable ? (
               // REPAIR UI COMPACT
-              <div className="space-y-3">
+              <div className="space-y-3 shrink-0">
                 <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
                   <p className="text-red-900 font-extrabold text-sm uppercase">Missed {rewardStatus.missedDays} Days</p>
                   <p className="text-xs text-red-700/80 font-semibold mb-2">Repair to keep your streak!</p>
@@ -1307,22 +1307,18 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
               // STANDARD CLAIM UI COMPACT
               rewardStatus.canClaim ? (
                 <>
-                  <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-4 text-center mb-4">
+                  <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-4 text-center mb-4 shrink-0">
                     <p className="text-amber-700/60 font-black text-[10px] uppercase tracking-widest mb-1">REWARD</p>
                     <p className="text-4xl font-black text-amber-500 drop-shadow-sm tracking-tighter shrink-0">+{rewardStatus.reward}</p>
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     <button
                       onClick={onClaim}
-                      className="w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden group border-b-4 border-black/10"
-                      style={{
-                        background: `linear-gradient(to right, ${theme.colors.buttonSecondary}, ${theme.colors.textSecondary})`,
-                        color: 'white'
-                      }}
+                      className={`w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden group border-b-4 border-black/10 bg-gradient-to-r ${theme.buttonPrimary}`}
                     >
                       <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                       <Gift className="h-5 w-5 stroke-white" />
-                      <span className="text-base text-white drop-shadow-sm">CLAIM</span>
+                      <span className="text-base text-white drop-shadow-sm">CLAIM REWARD</span>
                     </button>
                     <button
                       onClick={onClose}
