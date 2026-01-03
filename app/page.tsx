@@ -1260,7 +1260,10 @@ function GameScreen({
   }, [timeLeft, levelCompleted])
 
   useEffect(() => {
-    if (cards.length > 0 && cards.every((c) => c.matched) && !levelCompleted) {
+    // Count matched cards instead of using .every() since CardGrid filters matched cards
+    const matchedCount = cards.filter((c) => c.matched).length
+    const totalCards = pairsCount * 2
+    if (cards.length > 0 && matchedCount === totalCards && !levelCompleted) {
       setLevelCompleted(true)
       onLevelUnlock(level + 1) // Save progress immediately upon completion
 
