@@ -1732,12 +1732,12 @@ function GameScreen({
             onClick={() => setIsPaused(!isPaused)}
             className={`flex - 1 font - black text - lg py - 3 transition - all duration - 300 flex items - center justify - center gap - 2 ${
     !isPaused
-    ? isFireMode
-      ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
-      : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
-    : isFireMode
-      ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
-      : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
+      ? isFireMode
+        ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse"
+        : "bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white hover:from-[#7c3aed] hover:to-[#6d28d9]"
+      : isFireMode
+        ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
+        : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:from-[#2563eb] hover:to-[#1d4ed8]"
   } `}
           >
             {!isPaused ? (
@@ -1944,8 +1944,8 @@ function ModeCarousel({
             onClick={() => emblaApi?.scrollTo(index)}
             className={`w - 2.5 h - 2.5 rounded - full transition - all duration - 300 shadow - sm ${
     selectedIndex === index
-    ? "bg-slate-800 w-6"
-    : "bg-slate-300 hover:bg-slate-400"
+      ? "bg-slate-800 w-6"
+      : "bg-slate-300 hover:bg-slate-400"
   } `}
             aria-label={`Go to slide ${ index + 1 } `}
           />
