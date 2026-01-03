@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 
-import { Play, Plus, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User, Cloud } from "lucide-react"
+import { Play, Plus, Gift, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User, Cloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import useEmblaCarousel from "embla-carousel-react"
