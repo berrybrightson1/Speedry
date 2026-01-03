@@ -1209,57 +1209,67 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
   const isRepairable = rewardStatus.canRepair && onRepair
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div
-        className="rounded-3xl p-1 max-w-md w-full shadow-2xl transform animate-in slide-in-from-bottom-4 duration-500 scale-100"
+        className="rounded-[2rem] p-1.5 max-w-sm w-full shadow-2xl transform animate-in slide-in-from-bottom-4 duration-500 scale-100"
         style={{ background: `linear-gradient(135deg, ${theme.colors.textPrimary}, ${theme.colors.textSecondary})` }}
       >
-        <div className="bg-white rounded-[20px] p-6 overflow-hidden relative">
-          {/* Background decoration */}
-          <div className={`absolute top-0 left-0 w-full h-32 opacity-10 bg-gradient-to-b ${theme.bgGradient}`} />
+        <div className="bg-white rounded-[1.7rem] p-6 relative overflow-hidden flex flex-col items-center">
+          {/* Decorative Glow */}
+          <div className={`absolute -top-20 -left-20 w-64 h-64 bg-gradient-to-br ${theme.bgGradient} opacity-10 blur-3xl rounded-full pointer-events-none`} />
 
           {/* Header */}
-          <div className="text-center mb-8 relative z-10">
+          <div className="text-center mb-8 relative z-10 w-full">
             <h2
-              className="text-3xl font-black mb-2 flex items-center justify-center gap-2"
+              className="text-4xl font-black mb-2 flex flex-col items-center justify-center leading-none"
               style={{ color: theme.colors.textPrimary }}
             >
-              <Gift className="w-8 h-8 animate-bounce" />
-              Daily Reward
+              <div className="bg-slate-100 p-4 rounded-full mb-3 shadow-inner">
+                <Gift className="w-10 h-10 animate-bounce" style={{ stroke: theme.colors.textPrimary }} />
+              </div>
+              DAILY REWARD
             </h2>
-            <p className="text-sm font-bold text-slate-500">
+            <p className="text-base font-bold text-slate-500">
               {isRepairable
-                ? `🚨 OH NO! You missed ${rewardStatus.missedDays} days!`
+                ? `🚨 STREAK BROKEN!`
                 : rewardStatus.canClaim
                   ? `Day ${(rewardStatus.nextStreak || 1)} Ready!`
-                  : `Streak Active! Come back tomorrow.`}
+                  : `Come back tomorrow!`}
             </p>
           </div>
 
           {/* Streak Calendar */}
-          <div className="grid grid-cols-7 gap-2 mb-8 relative z-10">
+          <div className="grid grid-cols-4 gap-3 w-full mb-8 relative z-10">
             {DAILY_REWARDS.map((reward, idx) => {
               const dayNum = idx + 1
-              // If repairable, we show the frozen streak as "completed" visually but maybe dimmed?
-              // Actually, simply:
               const isCompleted = dayNum <= rewardStatus.streak
               const isCurrent = (rewardStatus.canClaim || isRepairable) && dayNum === (rewardStatus.streak + 1)
+              const isFuture = !isCompleted && !isCurrent
 
               return (
                 <div
                   key={idx}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center p-1 border-2 transition-all ${isCompleted
-                    ? 'bg-emerald-100 border-emerald-400 opacity-100' // Completed days always green
-                    : isCurrent
-                      ? isRepairable ? 'bg-red-50 border-red-400 animate-pulse' : 'bg-amber-100 border-amber-400 animate-pulse'
-                      : 'bg-slate-50 border-slate-200 opacity-60'
+                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center border-[3px] transition-all relative overflow-hidden ${isCompleted
+                      ? 'bg-emerald-100 border-emerald-500 opacity-100'
+                      : isCurrent
+                        ? isRepairable ? 'bg-red-50 border-red-500 animate-pulse' : 'bg-amber-50 border-amber-500 animate-pulse'
+                        : 'bg-slate-50 border-slate-200'
                     }`}
                   style={{
-                    borderColor: isCompleted ? theme.colors.textSecondary : undefined
+                    borderColor: isCompleted ? theme.colors.textSecondary : undefined,
+                    gridColumn: idx === 6 ? 'span 2' : 'span 1', // Make Day 7 (Jackpot) wide or just last
+                    // Actually 7 items in 4 cols: Row 1 (4), Row 2 (3). Center row 2.
                   }}
                 >
-                  <div className="text-[10px] font-black text-slate-400">Day {dayNum}</div>
-                  <div className={`text-xs font-black ${isCompleted ? 'text-emerald-700' : isCurrent ? (isRepairable ? 'text-red-500' : 'text-amber-600') : 'text-slate-400'}`}>
+                  {isCompleted && <div className="absolute inset-0 flex items-center justify-center bg-emerald-500/10"><Check className="w-8 h-8 text-emerald-600 stroke-[3]" /></div>}
+
+                  <div className={`text-[10px] font-black uppercase tracking-wider mb-1 ${isCompleted ? 'text-emerald-700' : isCurrent ? 'text-slate-600' : 'text-slate-400'}`}>
+                    Day {dayNum}
+                  </div>
+                  <div className={`text-lg font-black ${isCompleted ? 'text-emerald-700'
+                      : isCurrent ? (isRepairable ? 'text-red-600' : 'text-amber-600')
+                        : 'text-slate-300'
+                    }`}>
                     {reward}
                   </div>
                 </div>
@@ -1268,35 +1278,34 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
           </div>
 
           {/* Action Area */}
-          <div className="space-y-4 relative z-10">
+          <div className="w-full relative z-10">
             {isRepairable ? (
               // REPAIR UI
-              <div className="space-y-3">
-                <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-center">
-                  <p className="text-red-800 font-bold text-sm mb-1">Streak Frozen! ❄️</p>
-                  <p className="text-xs text-red-600 mb-3">Repair to verify missed days & keep your progress.</p>
-                  <p className="text-2xl font-black text-slate-800">{rewardStatus.repairCost!.toFixed(2)} GHS</p>
+              <div className="space-y-4">
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 text-center">
+                  <p className="text-red-900 font-extrabold text-lg uppercase tracking-wide mb-1">Missed {rewardStatus.missedDays} Days</p>
+                  <p className="text-sm text-red-700/80 font-bold mb-3">Repair to keep your streak alive!</p>
+                  <div className="bg-white/80 rounded-xl py-2 px-4 inline-block shadow-sm">
+                    <p className="text-3xl font-black text-slate-900">{rewardStatus.repairCost!.toFixed(2)} <span className="text-base text-slate-500">GHS</span></p>
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      // Reset manually if they decline
                       localStorage.setItem('speedry_daily_streak', '0')
                       onClose()
-                      // Next open will be fresh start logic
                     }}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3 rounded-xl transition-all"
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 font-bold py-4 rounded-xl transition-all"
                   >
-                    Start Over
+                    Reset
                   </button>
                   <button
                     onClick={() => onRepair && onRepair(rewardStatus.repairCost!)}
-                    className="flex-[2] text-white font-black py-3 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-                    style={{ background: `linear-gradient(to right, ${theme.colors.textPrimary}, ${theme.colors.textSecondary})` }}
+                    className="flex-[2] text-white font-black py-4 rounded-xl shadow-xl shadow-red-500/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-br from-red-500 to-rose-600 border-b-4 border-red-800"
                   >
-                    <Flame className="w-5 h-5 fill-white" />
-                    REPAIR STREAK
+                    <Flame className="w-6 h-6 fill-white animate-pulse" />
+                    REPAIR NOW
                   </button>
                 </div>
               </div>
@@ -1304,34 +1313,35 @@ function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () =
               // STANDARD CLAIM UI
               rewardStatus.canClaim ? (
                 <>
-                  <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-6 text-center mb-4">
-                    <p className="text-amber-800 font-bold text-sm uppercase tracking-wider mb-1">Today's Reward</p>
-                    <p className="text-5xl font-black text-amber-500 drop-shadow-sm">+{rewardStatus.reward} XP</p>
+                  <div className="bg-amber-50 border-4 border-amber-100 rounded-3xl p-8 text-center mb-6 shadow-sm">
+                    <p className="text-amber-700/60 font-black text-xs uppercase tracking-[0.2em] mb-2">REWARD AVAILABLE</p>
+                    <p className="text-6xl font-black text-amber-500 drop-shadow-sm tracking-tighter">+{rewardStatus.reward}</p>
+                    <p className="text-amber-400 font-bold text-lg">XP POINTS</p>
                   </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={onClose}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3 rounded-xl transition-all"
-                    >
-                      Later
-                    </button>
+                  <div className="flex flex-col gap-3 w-full">
                     <button
                       onClick={onClaim}
-                      className="flex-[2] text-white font-black py-4 rounded-xl shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2 relative overflow-hidden group"
+                      className="w-full text-white font-black py-5 rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border-b-4 border-black/20"
                       style={{ background: `linear-gradient(to right, ${theme.colors.buttonSecondary}, ${theme.colors.textSecondary})` }}
                     >
                       <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                      <Gift className="h-6 w-6" />
-                      CLAIM REWARD
+                      <Gift className="h-7 w-7" />
+                      <span className="text-xl">CLAIM REWARD</span>
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="w-full bg-white text-slate-300 hover:text-slate-500 font-bold py-3 text-sm transition-all"
+                    >
+                      Remind me later
                     </button>
                   </div>
                 </>
               ) : (
                 <button
                   onClick={onClose}
-                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl transition-all"
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 font-black py-4 rounded-xl transition-all"
                 >
-                  CLOSE
+                  COME BACK TOMORROW
                 </button>
               )
             )}
