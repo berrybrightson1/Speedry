@@ -463,6 +463,28 @@ export default function SpeedryConquest() {
     toast.info("Playing as Guest. Progress saved locally.", { icon: "⚠️" })
   } // guide, secrets, updates
 
+  // DAILY REWARDS CHECK ON LOAD
+  useEffect(() => {
+    if (!isLoading && screen === 'menu') {
+      const status = getDailyRewardStatus()
+      if (status.canClaim) {
+        setTimeout(() => setShowDailyReward(true), 1500)
+      }
+    }
+  }, [isLoading, screen])
+
+  // CLAIM DAILY REWARD HANDLER
+  const handleClaimDailyReward = () => {
+    const result = claimDailyReward()
+    if (result) {
+      setXp(xp + result.reward)
+      sounds.xpGain()
+      sounds.levelComplete()
+      toast.success(`🎁 +${result.reward} XP claimed! Day ${result.streak} streak!`)
+      setShowDailyReward(false)
+    }
+  }
+
   // PAYMENT HANDLER (LIFTED)
   const handlePaystackPayment = (amountGHS: number) => {
     // @ts-ignore
@@ -853,6 +875,14 @@ export default function SpeedryConquest() {
         <AuthChoiceModal
           onLogin={handleLogin}
           onGuest={handleGuestMode}
+        />
+      )}
+
+      {/* DAILY REWARDS MODAL */}
+      {showDailyReward && (
+        <DailyRewardModal
+          onClaim={handleClaimDailyReward}
+          onClose={() => setShowDailyReward(false)}
         />
       )}
 
