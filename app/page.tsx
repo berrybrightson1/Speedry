@@ -285,14 +285,30 @@ const getDailyRewardStatus = () => {
 
   if (daysDiff === 0) {
     // Already claimed today
-    return { canClaim: false, streak: currentStreak, reward: 0, daysSinceLastClaim: 0 }
+    return { canClaim: false, streak: currentStreak, reward: 0, daysSinceLastClaim: 0, missedDays: 0, repairCost: 0 }
   } else if (daysDiff === 1) {
-    // Consecutive day! Increment streak
-    const newStreak = Math.min(currentStreak + 1, 7)
-    return { canClaim: true, streak: currentStreak, nextStreak: newStreak, reward: DAILY_REWARDS[newStreak - 1], daysSinceLastClaim: 1 }
+    // Perfect streak!
+    const nextStreak = Math.min(currentStreak + 1, 7)
+    return { canClaim: true, streak: currentStreak, nextStreak, reward: DAILY_REWARDS[nextStreak - 1], daysSinceLastClaim: 1, missedDays: 0, repairCost: 0 }
   } else {
-    // Missed a day - reset streak
-    return { canClaim: true, streak: 0, reward: DAILY_REWARDS[0], daysSinceLastClaim: daysDiff }
+    // Streak broken?
+    const missedDays = daysDiff - 1
+    const repairCost = missedDays * 2 // 2 GHS per missed day
+
+    // If NO previous streak (0), just reset.
+    if (currentStreak === 0) {
+      return { canClaim: true, streak: 0, nextStreak: 1, reward: DAILY_REWARDS[0], daysSinceLastClaim: daysDiff, missedDays: 0, repairCost: 0 }
+    }
+
+    return {
+      canClaim: false,
+      canRepair: true,
+      streak: currentStreak,
+      reward: 0,
+      daysSinceLastClaim: daysDiff,
+      missedDays,
+      repairCost
+    }
   }
 }
 
@@ -327,6 +343,9 @@ export default function SpeedryConquest() {
   const [playerId, setPlayerId] = useState<string>("")
   const [roomData, setRoomData] = useState<RoomData | null>(null)
   const [matchCode, setMatchCode] = useState<string>("")
+
+  // Derived State
+  const currentTheme = getCurrentSeason(level)
 
   // GLOBAL STORE STATE
   const [showGlobalStore, setShowGlobalStore] = useState(false)
