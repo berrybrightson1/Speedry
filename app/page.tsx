@@ -638,19 +638,12 @@ export default function SpeedryConquest() {
             onMenu={() => setScreen("menu")}
           />
         )}
-        {/* HELP BUTTON (Fixed Dramatic Position) */}
+        {/* DRAGGABLE HELP BUTTON (Like iPhone AssistiveTouch) */}
         {!showHelp && !showGlobalStore && screen === "menu" && (
-          <button
-            onClick={() => {
-              setHelpTab("guide")
-              setShowHelp(true)
-            }}
-            className="fixed top-20 right-4 z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-4 rounded-full shadow-2xl border-2 border-white/50 text-white hover:scale-110 hover:rotate-6 transition-all animate-[dramaticPulse_2s_ease-in-out_infinite]"
-            style={{ boxShadow: '0 0 25px rgba(139, 92, 246, 0.6), 0 0 50px rgba(139, 92, 246, 0.3)' }}
-            aria-label="Help"
-          >
-            <HelpCircle className="w-6 h-6" />
-          </button>
+          <DraggableHelpButton onOpenHelp={() => {
+            setHelpTab("guide")
+            setShowHelp(true)
+          }} />
         )}
       </div>
       <InstallPrompt />
@@ -814,6 +807,120 @@ function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
         GET STARTED
       </Button>
     </div>
+  )
+}
+
+function DraggableHelpButton({ onOpenHelp }: { onOpenHelp: () => void }) {
+  const [position, setPosition] = useState({ x: 0, y: 80 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const buttonRef = React.useRef<HTMLButtonElement>(null)
+
+  // Load saved position from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('speedry_help_button_position')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      setPosition(parsed)
+    } else {
+      // Default to top-right
+      setPosition({ x: window.innerWidth - 80, y: 80 })
+    }
+  }, [])
+
+  const handleStart = (clientX: number, clientY: number) => {
+    setIsDragging(true)
+    setDragStart({
+      x: clientX - position.x,
+      y: clientY - position.y
+    })
+  }
+
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return
+
+    const newX = clientX - dragStart.x
+    const newY = clientY - dragStart.y
+
+    // Constrain to viewport
+    const maxX = window.innerWidth - 64
+    const maxY = window.innerHeight - 64
+
+    setPosition({
+      x: Math.max(16, Math.min(newX, maxX)),
+      y: Math.max(16, Math.min(newY, maxY))
+    })
+  }
+
+  const handleEnd = () => {
+    if (isDragging) {
+      setIsDragging(false)
+      // Save position
+      localStorage.setItem('speedry_help_button_position', JSON.stringify(position))
+    }
+  }
+
+  // Touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    handleStart(touch.clientX, touch.clientY)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    handleMove(touch.clientX, touch.clientY)
+  }
+
+  // Mouse handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    handleStart(e.clientX, e.clientY)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
+    const handleMouseUp = () => handleEnd()
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, dragStart, position])
+
+  return (
+    <button
+      ref={buttonRef}
+      onClick={(e) => {
+        // Only trigger click if not dragging
+        if (!isDragging) {
+          onOpenHelp()
+        }
+      }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleEnd}
+      className="fixed z-50 bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-4 rounded-full shadow-2xl border-2 border-white/50 text-white hover:scale-110 transition-transform active:scale-95 touch-none"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        boxShadow: isDragging
+          ? '0 0 35px rgba(139, 92, 246, 0.8), 0 0 70px rgba(139, 92, 246, 0.5)'
+          : '0 0 25px rgba(139, 92, 246, 0.6), 0 0 50px rgba(139, 92, 246, 0.3)',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        animation: isDragging ? 'none' : 'dramaticPulse 2s ease-in-out infinite'
+      }}
+      aria-label="Help (Drag to move)"
+    >
+      <HelpCircle className="w-6 h-6" />
+    </button>
   )
 }
 
@@ -1976,7 +2083,7 @@ function ModeCarousel({
                 onClick={onContinue}
                 className="w-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] hover:from-[#7c3aed] hover:to-[#6d28d9] text-white p-8 pt-20 h-56 flex flex-col items-center justify-center transition-all active:scale-95 group"
               >
-                <div className="w-full flex items-center justify-between mb-2 px-2">
+                <div className="w-full space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="p-2 bg-white/20 rounded-lg">
                       <Trophy className="w-5 h-5 text-white" />
@@ -1986,25 +2093,23 @@ function ModeCarousel({
                       <p className="text-2xl font-black leading-none">LEVEL {bestLevel}</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-6 h-6 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
-                </div>
-
-                {/* SEASON PROGRESS BAR */}
-                <div className="w-full mt-3 space-y-2">
-                  <div className="flex justify-between items-center px-1">
-                    <p className="text-xs font-bold text-purple-100">{seasonInfo.themeName}</p>
-                    <p className="text-xs font-bold text-purple-100">{seasonInfo.progress}/9</p>
-                  </div>
-                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden relative border border-white/10">
-                    <div
-                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
-                      style={{ width: `${seasonInfo.percentage}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-center">
-                    <p className="text-[10px] font-semibold text-purple-200">
-                      {seasonInfo.progress === 9 ? "🎉 Season Complete! Next: " + (THEMES[(Math.floor((bestLevel - 1) / 9) + 1) % THEMES.length]?.name || "New Season") : `${9 - seasonInfo.progress} levels until next season`}
-                    </p>
+                  {/* SEASON PROGRESS BAR */}
+                  <div className="w-full space-y-2">
+                    <div className="flex justify-between items-center px-1">
+                      <p className="text-xs font-bold text-purple-100">{seasonInfo.themeName}</p>
+                      <p className="text-xs font-bold text-purple-100">{seasonInfo.progress}/9</p>
+                    </div>
+                    <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden relative border border-white/10">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
+                        style={{ width: `${seasonInfo.percentage}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      <p className="text-[10px] font-semibold text-purple-200">
+                        {seasonInfo.progress === 9 ? "🎉 Season Complete! Next: " + (THEMES[(Math.floor((bestLevel - 1) / 9) + 1) % THEMES.length]?.name || "New Season") : `${9 - seasonInfo.progress} levels until next season`}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </button>
@@ -2925,13 +3030,13 @@ function HelpModal({
                 <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <h3 className="font-black text-slate-800 text-lg">v2.2 - Season & UX Update</h3>
                 <p className="text-emerald-600 text-xs font-bold mb-1">Current Version</p>
-                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:27 AM</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 9:36 AM</p>
                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
                   <li><span className="font-bold">Season System</span>: 9 levels per themed season with progress tracking</li>
                   <li><span className="font-bold">Season Celebration</span>: Congrats message & next theme preview on completion</li>
+                  <li><span className="font-bold">Draggable Help Button</span>: Move help bubble anywhere like iPhone AssistiveTouch</li>
                   <li><span className="font-bold">Enhanced Guide</span>: Clear FIREMODE cheat instructions in Secrets tab</li>
                   <li><span className="font-bold">Simplified Level Complete</span>: Removed popup, clean button transitions</li>
-                  <li><span className="font-bold">Help Bubble</span>: Repositioned to top-right with dramatic glow effect</li>
                   <li><span className="font-bold">Faster XP Popup</span>: Reduced display time from 1.5s to 1s</li>
                   <li><span className="font-bold">Menu Button Fix</span>: Now properly returns to main menu after level</li>
                   <li><span className="font-bold">Patch Notes</span>: All updates now include timestamps</li>
