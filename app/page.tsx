@@ -3468,20 +3468,42 @@ function HelpModal({
           )}
 
           {activeTab === "updates" && (
-            <div className="space-y-6">
-              <div className="relative pl-4 border-l-2 border-emerald-500">
-                <div className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <h3 className="font-black text-slate-800 text-lg">v2.3 - Engagement & Theme Update</h3>
-                <p className="text-emerald-600 text-xs font-bold mb-1">Current Version</p>
-                <p className="text-slate-400 text-[10px] font-semibold mb-3">📅 January 3, 2026 • 10:07 AM</p>
-                <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
-                  <li><span className="font-bold">Daily Rewards System</span>: 7-day streak (50-500 XP) with FOMO mechanics</li>
-                  <li><span className="font-bold">Sound Effects + Haptics</span>: Audio feedback and vibrations for all key actions</li>
-                  <li><span className="font-bold">Comprehensive Theme Colors</span>: All UI changes color per season (cards, buttons, HUD)</li>
-                  <li><span className="font-bold">Season System</span>: 9 levels per themed season with progress tracking</li>
-                  <li><span className="font-bold">Draggable Help Button</span>: Move help bubble anywhere like iPhone AssistiveTouch</li>
-                  <li><span className="font-bold">Menu Button Fix</span>: Now properly returns to main menu after level</li>
-                </ul>
+            <div className="space-y-8">
+              <div className="relative pl-6 border-l-4 border-emerald-500">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
+                <h3 className="font-black text-slate-800 text-xl mb-1">v2.3 - The "Daily" Update</h3>
+                <p className="text-emerald-600 text-xs font-bold uppercase tracking-widest mb-1">Released Today</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-4">📅 January 3, 2026</p>
+
+                <div className="space-y-4">
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                    <p className="font-bold text-amber-800 text-sm mb-1">🎁 Daily Rewards</p>
+                    <p className="text-amber-700/80 text-xs">
+                      Log in every day to claim free XP! Don't miss the <strong>Day 7 Jackpot</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                    <p className="font-bold text-red-800 text-sm mb-1">🔥 Streak Repair</p>
+                    <p className="text-red-700/80 text-xs">
+                      Missed a day? No problem! You can now <strong>Repair</strong> your streak to keep your progress safe.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="font-bold text-slate-700 text-sm mb-1">🎨 Dynamic Seasons</p>
+                    <p className="text-slate-500 text-xs">
+                      The entire game changes color as you level up! <span className="text-emerald-500 font-bold">Nature</span> → <span className="text-blue-500 font-bold">City</span> → <span className="text-orange-500 font-bold">Inferno</span>.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="font-bold text-slate-700 text-sm mb-1">🔊 Sound & Feel</p>
+                    <p className="text-slate-500 text-xs">
+                      Added satisfying clicks, pops, and vibrations for a better game feel.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="relative pl-4 border-l-2 border-slate-300">
