@@ -1108,7 +1108,7 @@ function GameScreen({
       onXpChange(xp + 200)
       setXpPopupAmount(200)
       setShowXpPopup(true)
-      setTimeout(() => setShowXpPopup(false), 1500)
+      setTimeout(() => setShowXpPopup(false), 1000)
 
       // 2. Level Warp (Once per 24h)
       const lastWarp = localStorage.getItem("speedry_last_warp")
@@ -1132,7 +1132,7 @@ function GameScreen({
           onXpChange(xp + 200)
           setXpPopupAmount(200)
           setShowXpPopup(true)
-          setTimeout(() => setShowXpPopup(false), 1500)
+          setTimeout(() => setShowXpPopup(false), 1000)
           toast("🔥 Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: '🔥' })
         } else {
           toast.error(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
@@ -1324,7 +1324,7 @@ function GameScreen({
       const timerId = setTimeout(() => {
         setShowXpPopup(false)
         // Redundant setLevelCompleted(true) removed here to prevent race condition
-      }, 1500)
+      }, 1000)
 
       return () => clearTimeout(timerId)
     }
@@ -1369,7 +1369,7 @@ function GameScreen({
               onXpChange(xp + streakXp)
               setXpPopupAmount(streakXp)
               setShowXpPopup(true)
-              setTimeout(() => setShowXpPopup(false), 1500)
+              setTimeout(() => setShowXpPopup(false), 1000)
             }
           } else {
             updatedCards[first].flipped = false
@@ -1522,6 +1522,7 @@ function GameScreen({
         onXpChange(xp + xpReward)
         setXpPopupAmount(xpReward)
         setShowXpPopup(true)
+        setTimeout(() => setShowXpPopup(false), 1000)
         toast.success(`Payment Verified! +${xpReward} XP Added.`)
       },
       onClose: () => {
