@@ -79,7 +79,52 @@ export const useGameSession = (levelId: number, onComplete?: (stars: number) => 
         handlers: {
             onCardClick: handleCardClick,
             pause: () => dispatch({ type: 'PAUSE' }),
-            resume: () => dispatch({ type: 'RESUME' })
+            resume: () => dispatch({ type: 'RESUME' }),
+            onRestart: () => window.location.reload(),
+            onHint: (cost: number, type: 'standard' | 'super') => {
+                // Hint Logic: Find 2 unmatched cards that form a pair or just random unmatched?
+                // Standard: Reveal 2 matching cards for a short time
+                // Super: Auto-match them?
+
+                const unmatchedIndices = state.cards
+                    .map((_, i) => i)
+                    .filter(i => !state.matchedIds.includes(state.cards[i].id) && !state.flippedIndices.includes(i));
+
+                if (unmatchedIndices.length < 2) return;
+
+                // Simple strategy: Pick first 2 matching cards from unmatched
+                // Group by value
+                const byValue: Record<string, number[]> = {};
+                for (const idx of unmatchedIndices) {
+                    const val = state.cards[idx].value; // Assuming value exists
+                    if (!byValue[val]) byValue[val] = [];
+                    byValue[val].push(idx);
+                }
+
+                // Find a pair
+                let pairIndices: number[] = [];
+                for (const val in byValue) {
+                    if (byValue[val].length >= 2) {
+                        pairIndices = byValue[val].slice(0, 2);
+                        break;
+                    }
+                }
+
+                if (pairIndices.length === 2) {
+                    if (type === 'super') {
+                        // Auto match
+                        dispatch({ type: 'CARD_MATCH', indices: pairIndices });
+                    } else {
+                        // Reveal
+                        dispatch({ type: 'USE_HINT', cost, indices: pairIndices });
+                        // Auto-hide after 2s? Engine doesn't have a timer for hints.
+                        // We can use a timeout here to clear them.
+                        setTimeout(() => {
+                            dispatch({ type: 'CLEAR_HINT' });
+                        }, 2000);
+                    }
+                }
+            }
         }
     };
 };

@@ -40,7 +40,10 @@ export default function StoreScreen({ playerState, onClose, onPurchase }: StoreS
                 <section>
                     <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">POWER-UPS</h3>
                     <div className="grid gap-3">
-                        <button className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
+                        <button
+                            onClick={() => onPurchase('time_freeze', 500)}
+                            className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                        >
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-500"><Zap className="w-5 h-5" /></div>
                                 <div className="text-left">
@@ -57,7 +60,10 @@ export default function StoreScreen({ playerState, onClose, onPurchase }: StoreS
                 <section>
                     <h3 className="text-white/60 text-xs font-bold uppercase tracking-widest mb-3">BUY CREDITS</h3>
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="p-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl shadow-lg hover:scale-105 transition-transform text-left">
+                        <button
+                            onClick={() => onPurchase('xp_10k', 0.99)}
+                            className="p-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl shadow-lg hover:scale-105 transition-transform text-left"
+                        >
                             <CreditCard className="w-6 h-6 text-white mb-2" />
                             <div className="text-white font-black text-lg">10,000 XP</div>
                             <div className="text-white/80 text-sm">$0.99</div>

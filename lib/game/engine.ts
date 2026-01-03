@@ -18,6 +18,7 @@ export const createInitialState = (level: LevelDef): GameSessionState => {
         cards: [], // Populated by Hook
         flippedIndices: [],
         matchedIds: [],
+        hintIndices: [],
         config: level.config // Store config in state
     };
 };
@@ -35,7 +36,8 @@ type Action =
     | { type: 'CARD_CLICK'; index: number }
     | { type: 'CARD_MATCH'; indices: number[] }
     | { type: 'CARD_MISMATCH' }
-    | { type: 'USE_HINT'; cost: number }
+    | { type: 'USE_HINT'; cost: number; indices: number[] }
+    | { type: 'CLEAR_HINT' }
     | { type: 'PAUSE' }
     | { type: 'RESUME' }
     | { type: 'LEVEL_COMPLETE' }
@@ -72,10 +74,25 @@ export const gameReducer = (state: GameSessionState, action: Action): GameSessio
             if (state.phase !== 'PLAYING') return state;
             if (state.flippedIndices.length >= 2) return state; // Block extra clicks
             if (state.flippedIndices.includes(action.index)) return state; // Already flipped
+            if (state.matchedIds.includes(state.cards[action.index].id)) return state; // Already matched
 
             return {
                 ...state,
                 flippedIndices: [...state.flippedIndices, action.index]
+            };
+
+        case 'USE_HINT':
+            return {
+                ...state,
+                hintIndices: action.indices
+                // Score deduction handled by caller or we add score to state?
+                // For now, caller handles XP deduction.
+            };
+
+        case 'CLEAR_HINT':
+            return {
+                ...state,
+                hintIndices: []
             };
 
         case 'CARD_MATCH':
@@ -96,6 +113,7 @@ export const gameReducer = (state: GameSessionState, action: Action): GameSessio
                     ...state,
                     matchedIds: newMatched,
                     flippedIndices: [],
+                    hintIndices: [], // Clear hints
                     phase: 'VICTORY', // IMMEDIATE TRANSITION - No midgame prompts possible!
                     streak: newStreak
                 };
