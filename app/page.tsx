@@ -477,6 +477,40 @@ export default function SpeedryConquest() {
     }
   }, [isLoading, screen])
 
+  // HANDLE STREAK REPAIR
+  const handleStreakRepair = (cost: number) => {
+    // @ts-ignore
+    if (typeof window.PaystackPop === 'undefined') {
+      toast.error("Payment system loading...")
+      return
+    }
+
+    // @ts-ignore
+    const handler = window.PaystackPop.setup({
+      key: 'pk_live_689412f7cc3058bf05f989dec1d3d370da60ccd1',
+      email: `${playerId || 'guest'}@speedry.net`,
+      amount: cost * 100, // GHS to pesewas
+      currency: 'GHS',
+      channels: ['mobile_money', 'card'],
+      callback: (response: any) => {
+        // SUCCESS: Repair Streak
+        // Set last claim date to YESTERDAY so they can claim TODAY perfectly
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        localStorage.setItem('speedry_last_claim_date', yesterday.toISOString())
+
+        // Streak is preserved (already in localStorage), just dates fixed
+        toast.success(`🔥 Streak Repaired! Claim your reward now!`)
+        setShowDailyReward(false)
+        setTimeout(() => setShowDailyReward(true), 500) // Re-open to show claim state
+      },
+      onClose: () => {
+        toast.info("Repair cancelled")
+      }
+    })
+    handler.openIframe()
+  }
+
   // CLAIM DAILY REWARD HANDLER
   const handleClaimDailyReward = () => {
     const result = claimDailyReward()
@@ -887,6 +921,8 @@ export default function SpeedryConquest() {
         <DailyRewardModal
           onClaim={handleClaimDailyReward}
           onClose={() => setShowDailyReward(false)}
+          onRepair={handleStreakRepair}
+          theme={currentTheme}
         />
       )}
 
@@ -1149,84 +1185,138 @@ function DraggableHelpButton({ onOpenHelp }: { onOpenHelp: () => void }) {
   )
 }
 
-function DailyRewardModal({ onClaim, onClose }: { onClaim: () => void, onClose: () => void }) {
+function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () => void, onClose: () => void, onRepair?: (cost: number) => void, theme: typeof THEMES[0] }) {
   const rewardStatus = getDailyRewardStatus()
+  const isRepairable = rewardStatus.canRepair && onRepair
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl transform animate-in slide-in-from-bottom-4 duration-500">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-black text-slate-800 mb-1">🎁 Daily Reward</h2>
-          <p className="text-sm font-semibold text-slate-600">
-            {rewardStatus.canClaim
-              ? rewardStatus.daysSinceLastClaim > 1
-                ? `Streak lost! Starting fresh from Day 1`
-                : `Day ${(rewardStatus.nextStreak || 1)} Reward!`
-              : `Come back tomorrow for Day ${rewardStatus.streak + 1}!`}
-          </p>
-        </div>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div
+        className="rounded-3xl p-1 max-w-md w-full shadow-2xl transform animate-in slide-in-from-bottom-4 duration-500 scale-100"
+        style={{ background: `linear-gradient(135deg, ${theme.colors.textPrimary}, ${theme.colors.textSecondary})` }}
+      >
+        <div className="bg-white rounded-[20px] p-6 overflow-hidden relative">
+          {/* Background decoration */}
+          <div className={`absolute top-0 left-0 w-full h-32 opacity-10 bg-gradient-to-b ${theme.bgGradient}`} />
 
-        {/* Streak Calendar */}
-        <div className="grid grid-cols-7 gap-2 mb-6">
-          {DAILY_REWARDS.map((reward, idx) => {
-            const dayNum = idx + 1
-            const isCompleted = dayNum <= rewardStatus.streak
-            const isCurrent = rewardStatus.canClaim && dayNum === (rewardStatus.nextStreak || 1)
+          {/* Header */}
+          <div className="text-center mb-8 relative z-10">
+            <h2
+              className="text-3xl font-black mb-2 flex items-center justify-center gap-2"
+              style={{ color: theme.colors.textPrimary }}
+            >
+              <Gift className="w-8 h-8 animate-bounce" />
+              Daily Reward
+            </h2>
+            <p className="text-sm font-bold text-slate-500">
+              {isRepairable
+                ? `🚨 OH NO! You missed ${rewardStatus.missedDays} days!`
+                : rewardStatus.canClaim
+                  ? `Day ${(rewardStatus.nextStreak || 1)} Ready!`
+                  : `Streak Active! Come back tomorrow.`}
+            </p>
+          </div>
 
-            return (
-              <div
-                key={idx}
-                className={`aspect-square rounded-xl flex flex-col items-center justify-center p-2 border-2 ${isCompleted
-                  ? 'bg-emerald-100 border-emerald-400'
-                  : isCurrent
-                    ? 'bg-gradient-to-br from-amber-100 to-orange-100 border-amber-500 animate-pulse'
-                    : 'bg-slate-100 border-slate-300'
-                  }`}
-              >
-                <div className="text-[10px] font-black text-slate-700">D{dayNum}</div>
-                <div className={`text-xs font-bold ${isCompleted ? 'text-emerald-600' : isCurrent ? 'text-orange-600' : 'text-slate-500'}`}>
-                  {reward}
+          {/* Streak Calendar */}
+          <div className="grid grid-cols-7 gap-2 mb-8 relative z-10">
+            {DAILY_REWARDS.map((reward, idx) => {
+              const dayNum = idx + 1
+              // If repairable, we show the frozen streak as "completed" visually but maybe dimmed?
+              // Actually, simply:
+              const isCompleted = dayNum <= rewardStatus.streak
+              const isCurrent = (rewardStatus.canClaim || isRepairable) && dayNum === (rewardStatus.streak + 1)
+
+              return (
+                <div
+                  key={idx}
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center p-1 border-2 transition-all ${isCompleted
+                    ? 'bg-emerald-100 border-emerald-400 opacity-100' // Completed days always green
+                    : isCurrent
+                      ? isRepairable ? 'bg-red-50 border-red-400 animate-pulse' : 'bg-amber-100 border-amber-400 animate-pulse'
+                      : 'bg-slate-50 border-slate-200 opacity-60'
+                    }`}
+                  style={{
+                    borderColor: isCompleted ? theme.colors.textSecondary : undefined
+                  }}
+                >
+                  <div className="text-[10px] font-black text-slate-400">Day {dayNum}</div>
+                  <div className={`text-xs font-black ${isCompleted ? 'text-emerald-700' : isCurrent ? (isRepairable ? 'text-red-500' : 'text-amber-600') : 'text-slate-400'}`}>
+                    {reward}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Action Area */}
+          <div className="space-y-4 relative z-10">
+            {isRepairable ? (
+              // REPAIR UI
+              <div className="space-y-3">
+                <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 text-center">
+                  <p className="text-red-800 font-bold text-sm mb-1">Streak Frozen! ❄️</p>
+                  <p className="text-xs text-red-600 mb-3">Repair to verify missed days & keep your progress.</p>
+                  <p className="text-2xl font-black text-slate-800">{rewardStatus.repairCost!.toFixed(2)} GHS</p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      // Reset manually if they decline
+                      localStorage.setItem('speedry_daily_streak', '0')
+                      onClose()
+                      // Next open will be fresh start logic
+                    }}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3 rounded-xl transition-all"
+                  >
+                    Start Over
+                  </button>
+                  <button
+                    onClick={() => onRepair && onRepair(rewardStatus.repairCost!)}
+                    className="flex-[2] text-white font-black py-3 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                    style={{ background: `linear-gradient(to right, ${theme.colors.textPrimary}, ${theme.colors.textSecondary})` }}
+                  >
+                    <Flame className="w-5 h-5 fill-white" />
+                    REPAIR STREAK
+                  </button>
                 </div>
               </div>
-            )
-          })}
-        </div>
-
-        {/* Reward Amount */}
-        {rewardStatus.canClaim && (
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 mb-6 text-center border-2 border-amber-300">
-            <p className="text-sm font-bold text-amber-700 mb-2">Today's Reward</p>
-            <p className="text-5xl font-black text-amber-600">+{rewardStatus.reward} XP</p>
+            ) : (
+              // STANDARD CLAIM UI
+              rewardStatus.canClaim ? (
+                <>
+                  <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-6 text-center mb-4">
+                    <p className="text-amber-800 font-bold text-sm uppercase tracking-wider mb-1">Today's Reward</p>
+                    <p className="text-5xl font-black text-amber-500 drop-shadow-sm">+{rewardStatus.reward} XP</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={onClose}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3 rounded-xl transition-all"
+                    >
+                      Later
+                    </button>
+                    <button
+                      onClick={onClaim}
+                      className="flex-[2] text-white font-black py-4 rounded-xl shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2 relative overflow-hidden group"
+                      style={{ background: `linear-gradient(to right, ${theme.colors.buttonSecondary}, ${theme.colors.textSecondary})` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      <Gift className="h-6 w-6" />
+                      CLAIM REWARD
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={onClose}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl transition-all"
+                >
+                  CLOSE
+                </button>
+              )
+            )}
           </div>
-        )}
-
-        {/* Buttons */}
-        <div className="flex gap-3">
-          {rewardStatus.canClaim ? (
-            <>
-              <button
-                onClick={onClose}
-                className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl transition-all"
-              >
-                Later
-              </button>
-              <button
-                onClick={onClaim}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black py-3 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-              >
-                <Gift className="h-5 w-5" />
-                CLAIM NOW!
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={onClose}
-              className="w-full bg-gradient-to-r from-slate-400 to-slate-500 hover:from-slate-500 hover:to-slate-600 text-white font-black py-3 rounded-xl transition-all"
-            >
-              CLOSE
-            </button>
-          )}
         </div>
       </div>
     </div>
