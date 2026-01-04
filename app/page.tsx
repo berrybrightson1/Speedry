@@ -3,13 +3,14 @@
 
 import React, { useState, useEffect, useCallback } from "react"
 
-import { Play, Plus, Gift, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User, Cloud } from "lucide-react"
+import { Play, Plus, Gift, Trophy, Users, Target, Zap, XCircle, LogOut, Pause, Loader2, Check, Clock, ChevronRight, AlertTriangle, Leaf, Building2, Flame, Info, HelpCircle, BookOpen, ScrollText, History, RefreshCw, Skull, User as UserIcon, Cloud, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import useEmblaCarousel from "embla-carousel-react"
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { database, ref, set, onValue, update, remove, push, runTransaction, query, orderByChild, equalTo, get, auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged } from "@/lib/firebase"
 import { User as FirebaseUser } from "firebase/auth"
+import { SeasonCompleteModal } from "@/components/SeasonCompleteModal"
 
 type Screen =
   | "welcome"
@@ -352,6 +353,7 @@ export default function SpeedryConquest() {
   const [showHelp, setShowHelp] = useState(false)
   const [helpTab, setHelpTab] = useState<"guide" | "secrets" | "updates">("guide")
   const [showDailyReward, setShowDailyReward] = useState(false)
+  const [showSeasonComplete, setShowSeasonComplete] = useState(false)
 
   // Auth State
   const [user, setUser] = useState<FirebaseUser | null>(null)
@@ -486,15 +488,24 @@ export default function SpeedryConquest() {
     toast.info("Playing as Guest. Progress saved locally.", { icon: "⚠️" })
   } // guide, secrets, updates
 
-  // DAILY REWARDS CHECK ON LOAD
+  // DAILY SPINS CHECK ON LOAD
   useEffect(() => {
     if (!isLoading && screen === 'menu') {
-      const status = getDailyRewardStatus()
-      if (status.canClaim) {
+      const storedSpins = Number(localStorage.getItem('speedry_spins_left') ?? 3)
+      const storedLastSpin = Number(localStorage.getItem('speedry_last_spin_time') ?? 0)
+      const COOLDOWN = 12 * 60 * 60 * 1000
+
+      // Auto-open if:
+      // 1. Cooldown passed (will reset to 3 spans)
+      // 2. Spins available
+      // 3. Guest (Teaser)
+      const shouldOpen = (Date.now() - storedLastSpin > COOLDOWN) || storedSpins > 0 || !user
+
+      if (shouldOpen) {
         setTimeout(() => setShowDailyReward(true), 1500)
       }
     }
-  }, [isLoading, screen])
+  }, [isLoading, screen, user])
 
   // HANDLE STREAK REPAIR
   const handleStreakRepair = (cost: number) => {
@@ -530,16 +541,13 @@ export default function SpeedryConquest() {
     handler.openIframe()
   }
 
-  // CLAIM DAILY REWARD HANDLER
-  const handleClaimDailyReward = () => {
-    const result = claimDailyReward()
-    if (result) {
-      setXp(xp + result.reward)
-      sounds.xpGain()
-      sounds.levelComplete()
-      toast.success(`🎁 +${result.reward} XP claimed! Day ${result.streak} streak!`)
-      setShowDailyReward(false)
-    }
+  // CLAIM SPIN REWARD HANDLER
+  const handleClaimDailyReward = (amount: number) => {
+    setXp(xp + amount)
+    sounds.xpGain()
+    // sounds.levelComplete() // Too loud for every spin?
+    toast.success(`🎁 +${amount} XP!`)
+    // Do NOT close modal, allow next spin
   }
 
   // PAYMENT HANDLER (LIFTED)
@@ -654,7 +662,8 @@ export default function SpeedryConquest() {
     if (savedXp) setXp(Number.parseInt(savedXp))
 
     if (!hasSeenWelcome) {
-      setScreen('welcome')
+      localStorage.setItem('speedry_welcomed', 'true') // Auto-mark as seen
+      setScreen('menu')
     } else {
       setScreen('menu')
     }
@@ -846,14 +855,7 @@ export default function SpeedryConquest() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#c8d5e8] to-[#e8eef5] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {screen === "welcome" && (
-          <WelcomeScreen
-            onGetStarted={() => {
-              localStorage.setItem('speedry_welcomed', 'true')
-              setScreen('menu')
-            }}
-          />
-        )}
+        {/* WELCOME SCREEN REMOVED FROM STARTUP FLOW */}
         {screen === "menu" && (
           <MenuScreen
             onQuickPlay={() => {
@@ -913,6 +915,7 @@ export default function SpeedryConquest() {
             onGameOver={() => setScreen("menu")}
             playerId={playerId}
             onOpenStore={() => setShowGlobalStore(true)}
+            onShowSeasonComplete={setShowSeasonComplete}
           />
         )}
         {screen === "gameOver" && (
@@ -955,13 +958,15 @@ export default function SpeedryConquest() {
         />
       )}
 
-      {/* DAILY REWARDS MODAL */}
+      {/* DAILY SPIN MODAL */}
       {showDailyReward && (
-        <DailyRewardModal
+        <SpinWheelModal
           onClaim={handleClaimDailyReward}
           onClose={() => setShowDailyReward(false)}
           onRepair={handleStreakRepair}
           theme={currentTheme.theme}
+          isGuest={!user}
+          onLogin={handleLogin}
         />
       )}
 
@@ -972,6 +977,37 @@ export default function SpeedryConquest() {
         activeTab={helpTab}
         onTabChange={setHelpTab}
       />
+
+      {/* SEASON COMPLETE MODAL */}
+      {showSeasonComplete && (() => {
+        const currentSeasonInfo = getCurrentSeason(level)
+        const completedSeasonNumber = currentSeasonInfo.seasonNumber
+        const nextTheme = THEMES[completedSeasonNumber % THEMES.length]
+
+        return (
+          <SeasonCompleteModal
+            currentSeasonNumber={completedSeasonNumber}
+            currentSeasonName={currentSeasonInfo.themeName}
+            nextSeasonNumber={completedSeasonNumber + 1}
+            nextSeasonName={nextTheme.name}
+            nextSeasonDescription={
+              nextTheme.name === "The City" ? "Enter the urban jungle where steel meets sky. Navigate bustling streets and towering skyscrapers." :
+                nextTheme.name === "The Inferno" ? "Brave the flames of legend. Dragons soar, wizards cast spells, and ancient mysteries await." :
+                  nextTheme.name === "The Cosmos" ? "Journey beyond the stars. Explore the infinite universe where galaxies collide." :
+                    "Return to nature's embrace. Where life begins anew and green fields stretch endlessly."
+            }
+            nextSeasonColor={nextTheme.colors.primary}
+            xpEarned={xp}
+            streak={Number(localStorage.getItem("speedry_daily_streak") || 0)}
+            onContinue={() => {
+              setShowSeasonComplete(false)
+              setLevel(level + 1)
+              // Navigate to next level/season
+            }}
+            onClose={() => setShowSeasonComplete(false)}
+          />
+        )
+      })()}
 
       {/* FLOATING HELP BUTTON */}
 
@@ -1224,143 +1260,331 @@ function DraggableHelpButton({ onOpenHelp }: { onOpenHelp: () => void }) {
   )
 }
 
-function DailyRewardModal({ onClaim, onClose, onRepair, theme }: { onClaim: () => void, onClose: () => void, onRepair?: (cost: number) => void, theme: typeof THEMES[0] }) {
-  const rewardStatus = getDailyRewardStatus()
-  const isRepairable = rewardStatus.canRepair && onRepair
+// SCAM WHEEL CONFIGURATION
+const WHEEL_SEGMENTS = [
+  { label: "2 XP", value: 2, color: "#94a3b8", probability: 0.25 },     // Slate-400 (Dud)
+  { label: "5 XP", value: 5, color: "#64748b", probability: 0.25 },     // Slate-500
+  { label: "10 XP", value: 10, color: "#3b82f6", probability: 0.20 },   // Blue-500
+  { label: "15 XP", value: 15, color: "#8b5cf6", probability: 0.10 },   // Violet-500
+  { label: "20 XP", value: 20, color: "#a855f7", probability: 0.10 },   // Purple-500
+  { label: "25 XP", value: 25, color: "#d946ef", probability: 0.05 },   // Fuchsia-500
+  { label: "50 XP", value: 50, color: "#f43f5e", probability: 0.03 },   // Rose-500
+  { label: "100 XP", value: 100, color: "#f59e0b", probability: 0.015 },// Amber-500
+  { label: "500 XP", value: 500, color: "#10b981", probability: 0.005 },// Emerald-500 (Jackpot)
+]
+
+const SPIN_COOLDOWN = 12 * 60 * 60 * 1000 // 12 Hours
+const MAX_SPINS = 3
+
+function SpinWheelModal({
+  onClaim,
+  onClose,
+  onRepair,
+  theme,
+  isGuest,
+  onLogin
+}: {
+  onClaim: (amount: number) => void
+  onClose: () => void
+  onRepair?: (cost: number) => void
+  theme: typeof THEMES[0]
+  isGuest: boolean
+  onLogin?: () => void
+}) {
+  const [isSpinning, setIsSpinning] = useState(false)
+  const [rotation, setRotation] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+
+  const [spinsLeft, setSpinsLeft] = useState(0)
+  const [nextSpinTime, setNextSpinTime] = useState(0)
+  const [winningSegment, setWinningSegment] = useState<typeof WHEEL_SEGMENTS[0] | null>(null)
+
+  // Repair State
+  const [streakBroken, setStreakBroken] = useState(false)
+
+  // Load State
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const storedSpins = Number(localStorage.getItem('speedry_spins_left') ?? MAX_SPINS)
+    const storedLastSpin = Number(localStorage.getItem('speedry_last_spin_time') ?? 0)
+    const storedStreak = Number(localStorage.getItem('speedry_daily_streak') ?? 0)
+    const lastClaimDate = localStorage.getItem('speedry_last_claim_date')
+
+    const now = Date.now()
+
+    // STREAK CHECK logic (Simulated for this component based on existing system)
+    // In a real app we'd pass this in, but for self-containment:
+    if (lastClaimDate) {
+      const lastDate = new Date(parseInt(lastClaimDate)).toDateString()
+      const today = new Date().toDateString()
+      const yesterday = new Date(now - 86400000).toDateString()
+
+      // If last claim wasn't today OR yesterday, streak is broken
+      if (lastDate !== today && lastDate !== yesterday && storedStreak > 0) {
+        setStreakBroken(true)
+      }
+    }
+
+    // New Session Check (12h Cooldown)
+    if (now - storedLastSpin > SPIN_COOLDOWN) {
+      // Cooldown Reset
+      setSpinsLeft(MAX_SPINS)
+      localStorage.setItem('speedry_spins_left', MAX_SPINS.toString())
+    } else {
+      // Mid-cycle
+      if (storedSpins <= 0) {
+        setNextSpinTime(storedLastSpin + SPIN_COOLDOWN)
+      }
+      setSpinsLeft(storedSpins)
+    }
+  }, [])
+
+  if (!mounted) return null
+
+  const handleSpin = () => {
+    if (isSpinning || spinsLeft <= 0 || isGuest || streakBroken) return
+
+    setIsSpinning(true)
+    setWinningSegment(null)
+
+    // WEIGHTED RNG
+    const rand = Math.random()
+    let cumulativeProb = 0
+    let selectedSegment = WHEEL_SEGMENTS[0]
+
+    for (const segment of WHEEL_SEGMENTS) {
+      cumulativeProb += segment.probability
+      if (rand <= cumulativeProb) {
+        selectedSegment = segment
+        break
+      }
+    }
+
+    // Calculate Rotation
+    // 9 Segments = 40 deg each. 
+    // Segment 0 is at top (0deg) visually? We need to align it.
+    // Let's assume standard wheel: 0deg is right (3 o'clock). 
+    // We want to rotate so the target segment lands on the marker (usually top or right).
+    // Let's assume marker is at TOP (270deg or -90deg logic).
+
+    // Index of segment
+    const index = WHEEL_SEGMENTS.indexOf(selectedSegment)
+    const segmentAngle = 360 / WHEEL_SEGMENTS.length // 40
+
+    // We want the wheel to stop where this segment is at top.
+    // If segment 0 is at 0-40 degrees?
+    // Let's just create a reliable offset.
+    // Full Rotations (min 4, max 8)
+    const fullRotations = 360 * (4 + Math.floor(Math.random() * 4))
+
+    // Target Angle to land on centered segment
+    // To land Index I at top: - (Index * Angle) - (Angle / 2)
+    const targetBaseRotation = (index * segmentAngle) + (segmentAngle / 2)
+
+    // But we are rotating the WHEEL container.
+    // To bring index I to top, we rotate the wheel NEGATIVE of its position? 
+    // Actually simpler: 360 - targetBaseRotation + Correction.
+    // Let's brute force calibrate: 0 rotation = Segment 0 at 3 o'clock usually in CSS?
+    // Let's Rotate so that it lands.
+
+    const finalRotation = fullRotations + (360 - (index * segmentAngle))
+
+    setRotation(finalRotation)
+
+    // Wait for animation
+    setTimeout(() => {
+      setIsSpinning(false)
+      setWinningSegment(selectedSegment)
+
+      const newSpins = spinsLeft - 1
+      setSpinsLeft(newSpins)
+      localStorage.setItem('speedry_spins_left', newSpins.toString())
+      localStorage.setItem('speedry_last_spin_time', Date.now().toString())
+
+      // Pass XP up
+      onClaim(selectedSegment.value)
+
+      if (newSpins <= 0) {
+        setNextSpinTime(Date.now() + SPIN_COOLDOWN)
+      }
+
+    }, 4000) // 4s spin
+  }
+
+  // Format Timer
+  const formatTime = (ms: number) => {
+    const s = Math.floor((ms / 1000) % 60)
+    const m = Math.floor((ms / 1000 / 60) % 60)
+    const h = Math.floor(ms / 1000 / 60 / 60)
+    return `${h}h ${m}m` // Simplified
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div
-        className="rounded-[2rem] p-1.5 w-full max-w-[320px] shadow-2xl transform animate-in zoom-in-95 duration-300"
-        style={{ background: 'transparent' }}
-      >
-        <div className="bg-white rounded-[1.7rem] p-5 relative overflow-hidden flex flex-col items-center shadow-lg border-0">
-          {/* Decorative Glow */}
-          <div className={`absolute -top-20 -left-20 w-48 h-48 bg-gradient-to-br ${theme.bgGradient} opacity-10 blur-3xl rounded-full pointer-events-none`} />
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="w-full max-w-sm relative">
 
-          {/* Header */}
-          <div className="text-center mb-5 relative z-10 w-full">
-            <h2
-              className="text-2xl font-black mb-1 flex items-center justify-center gap-2"
-              style={{ color: theme.colors.textPrimary }}
-            >
-              <Gift className="w-6 h-6 animate-bounce" style={{ stroke: theme.colors.textPrimary }} />
-              DAILY REWARD
+        {/* CLOSE BUTTON */}
+        <button onClick={onClose} className="absolute -top-12 right-0 bg-white/10 hover:bg-white/20 p-2 rounded-full text-white backdrop-blur-md transition-all z-20">
+          <XCircle className="w-8 h-8" />
+        </button>
+
+        <div className="bg-[#0f172a] border border-slate-700/50 rounded-[2rem] p-6 pb-12 min-h-[750px] shadow-2xl relative overflow-hidden flex flex-col items-center justify-between">
+
+          {/* BACKGROUND GLOW */}
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-purple-500/10 to-transparent pointer-events-none" />
+
+          {/* HEADER */}
+          <div className="text-center mb-6 relative z-10 mt-4">
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center gap-3">
+              <RefreshCw className={`w-8 h-8 ${isSpinning ? 'animate-spin' : ''}`} />
+              LUCKY SPIN
             </h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {isRepairable
-                ? `🚨 STREAK BROKEN!`
-                : rewardStatus.canClaim
-                  ? `Day ${(rewardStatus.nextStreak || 1)} Ready!`
-                  : `Come back tomorrow!`}
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-2">
+              {isGuest ? "Free Mode Preview" : streakBroken ? "Repair Needed" : `Spins Left: ${spinsLeft}/${MAX_SPINS}`}
             </p>
           </div>
 
-          {/* Streak Calendar */}
-          <div className="grid grid-cols-4 gap-2 w-full mb-5 relative z-10">
-            {DAILY_REWARDS.map((reward, idx) => {
-              const dayNum = idx + 1
-              const isCompleted = dayNum <= rewardStatus.streak
-              const isCurrent = (rewardStatus.canClaim || isRepairable) && dayNum === (rewardStatus.streak + 1)
+          {/* WHEEL CONTAINER */}
+          <div className="relative w-72 h-72 mb-8 scale-110 mt-8">
+            {/* POINTER */}
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20">
+              <div className="w-0 h-0 border-l-[20px] border-l-transparent border-t-[35px] border-t-white border-r-[20px] border-r-transparent drop-shadow-xl"></div>
+            </div>
 
-              return (
-                <div
-                  key={idx}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden ${isCompleted
-                    ? 'bg-emerald-50 border-emerald-400 opacity-100'
-                    : isCurrent
-                      ? isRepairable ? 'bg-red-50 border-red-400 animate-pulse' : 'bg-amber-50 border-amber-400 animate-pulse'
-                      : 'bg-slate-50 border-slate-200'
-                    }`}
-                  style={{
-                    borderColor: isCompleted ? theme.colors.textSecondary : undefined,
-                    gridColumn: 'span 1', // ALL DAYS ARE NOW EQUAL SIZE (1x1)
-                  }}
-                >
-                  <div className={`text-[9px] font-black uppercase ${isCompleted ? 'text-emerald-700' : isCurrent ? 'text-slate-600' : 'text-slate-400'}`}>
-                    Day {dayNum} {idx === 6 && '🏆'}
+            {/* WHEEL */}
+            <div
+              className="w-full h-full rounded-full border-4 border-slate-800 shadow-[0_0_50px_rgba(139,92,246,0.4)] relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.2, 0.8, 0.2, 1)"
+              style={{ transform: `rotate(${rotation}deg)` }}
+            >
+              {WHEEL_SEGMENTS.map((seg, i) => {
+                const angle = 360 / WHEEL_SEGMENTS.length
+                const rotation = i * angle
+                return (
+                  <div
+                    key={i}
+                    className="absolute top-0 left-0 w-full h-full origin-center"
+                    style={{ transform: `rotate(${rotation}deg)` }}
+                  >
+                    {/* SLICE */}
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[70px] border-l-transparent border-t-[150px] border-r-[70px] border-r-transparent origin-bottom"
+                      style={{
+                        borderTopColor: seg.color,
+                      }}
+                    ></div>
+                    {/* LABEL */}
+                    <div
+                      className="absolute top-8 left-1/2 -translate-x-1/2 text-sm font-black text-white whitespace-nowrap drop-shadow-md"
+                      style={{ transform: 'translateX(-50%)' }}
+                    >
+                      {seg.value}
+                    </div>
                   </div>
-                  <div className={`text-sm font-black ${isCompleted ? 'text-emerald-700'
-                    : isCurrent ? (isRepairable ? 'text-red-600' : 'text-amber-600')
-                      : 'text-slate-300'
-                    }`}>
-                    {reward}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+
+            {/* CENTRE CAP */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white rounded-full shadow-lg border-4 border-slate-200 z-10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 animate-pulse"></div>
+            </div>
           </div>
 
-          {/* Action Area */}
-          <div className="w-full relative z-10">
-            {isRepairable ? (
-              // REPAIR UI COMPACT
-              <div className="space-y-3 shrink-0">
-                <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
-                  <p className="text-red-900 font-extrabold text-sm uppercase">Missed {rewardStatus.missedDays} Days</p>
-                  <p className="text-xs text-red-700/80 font-semibold mb-2">Repair to keep your streak!</p>
-                  <div className="bg-white/80 rounded-lg py-1 px-3 inline-block shadow-sm">
-                    <p className="text-xl font-black text-slate-900">{rewardStatus.repairCost!.toFixed(2)} <span className="text-xs text-slate-500">GHS</span></p>
-                  </div>
+          {/* CONTROLS */}
+          <div className="w-full relative z-10 flex flex-col gap-4 mb-4">
+            {isGuest ? (
+              <div className="flex flex-col gap-3 w-full animate-in slide-in-from-bottom-5 duration-500">
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 text-center mb-2">
+                  <p className="text-slate-300 text-sm font-semibold">Sign in to win up to <span className="text-emerald-400 font-bold">500 XP</span>!</p>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('speedry_daily_streak', '0')
-                      onClose()
-                    }}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-400 text-xs font-bold py-3 rounded-lg transition-all"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    onClick={() => onRepair && onRepair(rewardStatus.repairCost!)}
-                    className="flex-[2] text-white font-bold py-3 text-sm rounded-lg shadow-lg active:scale-95 flex items-center justify-center gap-1 bg-gradient-to-r from-red-500 to-rose-600"
-                  >
-                    <Flame className="w-4 h-4 fill-white" />
-                    REPAIR
-                  </button>
-                </div>
-              </div>
-            ) : (
-              // STANDARD CLAIM UI COMPACT
-              rewardStatus.canClaim ? (
-                <>
-                  <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-4 text-center mb-4 shrink-0">
-                    <p className="text-amber-700/60 font-black text-[10px] uppercase tracking-widest mb-1">REWARD</p>
-                    <p className="text-4xl font-black text-amber-500 drop-shadow-sm tracking-tighter shrink-0">+{rewardStatus.reward}</p>
-                  </div>
-                  <div className="flex flex-col gap-2 w-full">
-                    <button
-                      onClick={onClaim}
-                      className="w-full font-black py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 relative overflow-hidden group bg-gradient-to-r from-purple-500 to-indigo-600" // PURPLE CLAIM BUTTON
-                    >
-                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                      <Gift className="h-5 w-5 stroke-white" />
-                      <span className="text-base text-white drop-shadow-sm uppercase tracking-wide">CLAIM REWARD</span>
-                    </button>
-                    <button
-                      onClick={onClose}
-                      className="w-full bg-transparent text-slate-400 hover:text-slate-600 font-bold py-2 text-xs transition-all"
-                    >
-                      Remind me later
-                    </button>
-                  </div>
-                </>
-              ) : (
                 <button
-                  onClick={onClose}
-                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 font-bold py-4 rounded-xl transition-all"
+                  disabled
+                  className="w-full py-4 rounded-2xl font-black text-lg bg-slate-800 text-slate-500 cursor-not-allowed flex items-center justify-center gap-2 border border-slate-700"
                 >
-                  COME BACK TOMORROW
+                  <Lock className="w-5 h-5" />
+                  SPIN (LOCKED)
                 </button>
-              )
+
+                <button
+                  onClick={() => {
+                    onLogin && onLogin()
+                  }}
+                  className="w-full py-4 rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                >
+                  <UserIcon className="w-5 h-5 fill-white" />
+                  SIGN IN TO SPIN
+                </button>
+              </div>
+            ) : streakBroken ? (
+              <div className="bg-red-900/20 border border-red-500/30 p-6 rounded-2xl text-center flex flex-col gap-4">
+                <div>
+                  <p className="text-red-400 font-bold text-sm uppercase mb-1">🔥 Streak Broken!</p>
+                  <p className="text-red-200/60 text-xs">Repair to keep your progress</p>
+                </div>
+                <button
+                  onClick={() => onRepair && onRepair(2.00)}
+                  className="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-4 rounded-xl shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 text-lg"
+                >
+                  REPAIR (2.00 GHS)
+                </button>
+              </div>
+            ) : spinsLeft > 0 ? (
+              <button
+                onClick={handleSpin}
+                disabled={isSpinning}
+                className={`w-full py-6 rounded-2xl font-black text-2xl shadow-xl transition-all flex items-center justify-center gap-3 ${isSpinning
+                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-[1.02] hover:shadow-purple-500/20'
+                  }`}
+              >
+                {isSpinning ? 'SPINNING...' : 'SPIN THE WHEEL'}
+              </button>
+            ) : (
+              <div className="bg-slate-800 p-6 rounded-2xl text-center border border-slate-700 flex flex-col gap-2">
+                <p className="text-slate-400 text-sm font-bold uppercase">Cooldown Active</p>
+                <div className="text-4xl font-black text-white font-mono my-2">
+                  {formatTime(Math.max(0, nextSpinTime - Date.now()))}
+                </div>
+                <p className="text-xs text-slate-500">Refreshes in 12 hours</p>
+              </div>
+            )}
+
+            {/* Disclaimer / Close for Guest */}
+            {isGuest && (
+              <button onClick={onClose} className="w-full py-2 text-slate-500 text-sm font-bold hover:text-slate-300 transition-colors">
+                No thanks, I'll browse first
+              </button>
             )}
           </div>
+
+          {/* WINNER POPUP (INTERNAL) */}
+          {winningSegment && !isSpinning && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center animate-in zoom-in duration-300">
+              <div className="bg-white p-6 rounded-3xl shadow-2xl text-center border-4 border-yellow-400 m-4">
+                <p className="text-slate-400 font-bold text-xs uppercase mb-1">YOU WON</p>
+                <div className="text-5xl font-black text-purple-600 mb-2">+{winningSegment.value} XP</div>
+                <button
+                  onClick={() => setWinningSegment(null)} // Just close the internal alert, keep modal open? Or close modal? User usually wants to spam spin logic says close modal? 
+                  // Actually spinning decrements counter.
+                  // Let's just clear this internal state to allow next spin or show cooldown.
+                  className="bg-purple-600 text-white font-bold px-8 py-2 rounded-full"
+                >
+                  AWESOME
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-    </div>
+    </div >
   )
 }
 
@@ -1586,6 +1810,40 @@ const CardGrid = React.memo(({ cards, onCardClick, isPaused, hintActive, gridSiz
 })
 CardGrid.displayName = "CardGrid"
 
+function AnimatedCounter({ value }: { value: number }) {
+  const [display, setDisplay] = useState(value)
+
+  useEffect(() => {
+    // Immediate sync on load or if difference is small/zero logic handles it
+    if (display === value) return
+
+    const interval = setInterval(() => {
+      setDisplay(prev => {
+        const diff = value - prev
+        if (Math.abs(diff) < 1) {
+          clearInterval(interval)
+          return value
+        }
+        // Smooth step: 15% of difference or min 1
+        const step = diff > 0 ? Math.ceil(diff * 0.15) : Math.floor(diff * 0.15)
+        return prev + step
+      })
+    }, 40) // ~25 FPS
+
+    return () => clearInterval(interval)
+  }, [value])
+
+  // Sound effect on meaningful increments (throttled slightly by update speed)
+  useEffect(() => {
+    if (display !== value) {
+      // High tick sound
+      playSound(1200 + (Math.random() * 200), 0.02, 'sine', 0.05)
+    }
+  }, [display])
+
+  return <span>{display}</span>
+}
+
 function GameScreen({
   onBack,
   onLevelUp,
@@ -1597,6 +1855,7 @@ function GameScreen({
   onGameOver, // Added prop
   playerId, // Added prop
   onOpenStore, // Added prop
+  onShowSeasonComplete, // Added prop for season complete modal
 }: {
   onBack: () => void
   onLevelUp: (newLevel: number) => void
@@ -1608,6 +1867,7 @@ function GameScreen({
   onGameOver: () => void
   playerId: string
   onOpenStore: () => void
+  onShowSeasonComplete: (show: boolean) => void
 }) {
   // Formula: Pairs = Level + 1. 
   // Refined Time Logic: 
@@ -1641,8 +1901,7 @@ function GameScreen({
   const [lives, setLives] = useState(3)
   const [hintTimeLeft, setHintTimeLeft] = useState<number | null>(null)
   const [hintsUsed, setHintsUsed] = useState(0) // Track hints for penalty
-  const [showXpPopup, setShowXpPopup] = useState(false)
-  const [xpPopupAmount, setXpPopupAmount] = useState(0)
+
   const [showEndGame, setShowEndGame] = useState(false)
   const [showTimedOut, setShowTimedOut] = useState(false)
   const [levelCompleted, setLevelCompleted] = useState(false)
@@ -1660,9 +1919,6 @@ function GameScreen({
     if (cheatCode === "FIREMODE") {
       // 1. Always give XP (Spammable)
       onXpChange(xp + 200)
-      setXpPopupAmount(200)
-      setShowXpPopup(true)
-      setTimeout(() => setShowXpPopup(false), 1000)
 
       // 2. Level Warp (Once per 24h)
       const lastWarp = localStorage.getItem("speedry_last_warp")
@@ -1684,9 +1940,6 @@ function GameScreen({
         if (newAttempts === 3) {
           // PITY REWARD: +200 XP
           onXpChange(xp + 200)
-          setXpPopupAmount(200)
-          setShowXpPopup(true)
-          setTimeout(() => setShowXpPopup(false), 1000)
           toast("🔥 Nice Try! Here's +200 XP for persistence. (Warp cooling down)", { icon: '🔥' })
         } else {
           toast.error(`Warp on cooldown. Attempt ${newAttempts}/3 for pity reward.`)
@@ -1874,15 +2127,7 @@ function GameScreen({
       sounds.xpGain()
 
       onXpChange(xp + totalXpEarned)
-      setXpPopupAmount(totalXpEarned)
-      setShowXpPopup(true)
-
-      const timerId = setTimeout(() => {
-        setShowXpPopup(false)
-        // Redundant setLevelCompleted(true) removed here to prevent race condition
-      }, 1000)
-
-      return () => clearTimeout(timerId)
+      onXpChange(xp + totalXpEarned)
     }
   }, [cards, levelCompleted, streak, initialTime, timeLeft, level, onXpChange, xp])
 
@@ -1932,9 +2177,7 @@ function GameScreen({
               sounds.streakCombo(newStreak)
 
               onXpChange(xp + streakXp)
-              setXpPopupAmount(streakXp)
-              setShowXpPopup(true)
-              setTimeout(() => setShowXpPopup(false), 1000)
+              onXpChange(xp + streakXp)
             }
           } else {
             // SOUND: Wrong match
@@ -1952,8 +2195,6 @@ function GameScreen({
 
           setCards(updatedCards)
           setFlippedIndices([])
-          setCards(updatedCards)
-          setFlippedIndices([])
         }, 500)
       }
     },
@@ -1969,7 +2210,6 @@ function GameScreen({
     }
 
     onXpChange(xp - cost)
-    setHintsUsed(h => h + 1) // Track usage
     setHintsUsed(h => h + 1) // Track usage
 
     let revealedCount = 0
@@ -2112,11 +2352,6 @@ function GameScreen({
         }
       `}</style>
       <div className={`w-full h-full md:h-auto md:max-w-sm md:rounded-2xl p-4 md:shadow-xl transition-all duration-1000 flex flex-col ${isFireMode ? "bg-gradient-to-br from-orange-50 to-red-50 md:border-2 md:border-orange-500 md:shadow-[0_0_30px_rgba(234,88,12,0.4)]" : "bg-gradient-to-br from-blue-50 to-slate-100"}`}>
-        {showXpPopup && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white font-black text-4xl px-8 py-4 rounded-3xl shadow-2xl animate-[bounce_1s_ease-in-out]">
-            +{xpPopupAmount} XP!
-          </div>
-        )}
         {showPreview && (
           <div className="absolute inset-0 z-50 bg-black/[0.94] flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
             <div className="text-center">
@@ -2156,8 +2391,8 @@ function GameScreen({
           )}
 
           <div className="flex items-center gap-2">
-            <div className={`${isFireMode ? "bg-gradient-to-r from-red-500 to-yellow-500" : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"} text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap`}>
-              {xp} XP
+            <div className={`${isFireMode ? "bg-gradient-to-r from-red-500 to-yellow-500" : "bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"} text-white font-black text-xs px-4 py-2 rounded-xl shadow-md whitespace-nowrap min-w-[80px] text-center`}>
+              <AnimatedCounter value={xp} /> XP
             </div>
             <button
               onClick={onOpenStore}
@@ -2343,42 +2578,19 @@ function GameScreen({
               <div className="flex-1 space-y-2">
                 <button
                   onClick={() => {
-                    setLevelCompleted(false)
-                    onLevelUp(level + 1)
+                    // Check if we just completed a season
+                    if (level % 9 === 0) {
+                      onShowSeasonComplete(true)
+                    } else {
+                      setLevelCompleted(false)
+                      onLevelUp(level + 1)
+                    }
                   }}
                   className={`w-full bg-gradient-to-r ${currentTheme.colors.buttonPrimary} hover:bg-gradient-to-r hover:${currentTheme.colors.buttonPrimaryHover} text-white font-black text-lg py-4 rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2`}
                 >
-                  <Trophy className="h-5 w-5" />
-                  GGs NEXT LEVEL
+                  <Trophy className="h-5 h-5" />
+                  {level % 9 === 0 ? "VIEW SEASON SUMMARY" : "GGs NEXT LEVEL"}
                 </button>
-                {/* Season Completion Message */}
-                {level % 9 === 0 && (() => {
-                  const nextTheme = THEMES[Math.floor(level / 9) % THEMES.length]
-                  const completedSeasonNumber = Math.floor((level - 1) / 9) + 1
-                  return (
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-3 duration-500">
-                      <div className="text-center">
-                        <p className="text-lg font-black text-purple-900 mb-1">🎉 SEASON {completedSeasonNumber} COMPLETE! 🎉</p>
-                        <p className="text-xs font-bold text-purple-600">Congratulations on conquering {currentTheme.name}!</p>
-                      </div>
-                      <div className="bg-white/70 rounded-lg p-3 border border-purple-100">
-                        <p className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                          <ChevronRight className="w-3 h-3" />
-                          NEXT: Season {completedSeasonNumber + 1}
-                        </p>
-                        <p className="text-sm font-black" style={{ color: nextTheme.colors.primary }}>
-                          {nextTheme.name}
-                        </p>
-                        <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">
-                          {nextTheme.name === "The City" && "Enter the urban jungle where steel meets sky. Navigate bustling streets and towering skyscrapers."}
-                          {nextTheme.name === "The Inferno" && "Brave the flames of legend. Dragons soar, wizards cast spells, and ancient mysteries await."}
-                          {nextTheme.name === "The Cosmos" && "Journey beyond the stars. Explore the infinite universe where galaxies collide."}
-                          {nextTheme.name === "The Awakening" && "Return to nature's embrace. Where life begins anew and green fields stretch endlessly."}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })()}
               </div>
               <button
                 onClick={() => {
@@ -3413,6 +3625,37 @@ function HelpModal({
 
           {activeTab === "guide" && (
             <div className="space-y-6">
+              {/* MOVED FROM WELCOME SCREEN */}
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-lg">
+                  <Target className="w-5 h-5 text-[#8b5cf6]" />
+                  HOW TO PLAY
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="p-3 bg-indigo-50 rounded-xl">
+                    <p className="font-bold text-indigo-900 text-sm mb-1">🎯 Objective</p>
+                    <p className="text-indigo-700 text-xs">Match all pairs before time runs out to advance.</p>
+                  </div>
+
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <p className="font-bold text-blue-900 text-sm mb-1">⏰ Game Flow</p>
+                    <ul className="list-disc list-inside text-blue-700 text-xs space-y-1">
+                      <li><strong>Preview:</strong> 5s to memorize cards</li>
+                      <li><strong>Match:</strong> Find pairs quickly</li>
+                      <li><strong>Level Up:</strong> Unlock harder challenges</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 rounded-xl">
+                    <p className="font-bold text-amber-900 text-sm mb-1">⚡ Tips</p>
+                    <ul className="list-disc list-inside text-amber-700 text-xs space-y-1">
+                      <li>Build streaks for XP multipliers</li>
+                      <li>Use hints if stuck (10 XP)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <h3 className="font-black text-slate-800 mb-2 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -3489,6 +3732,35 @@ function HelpModal({
 
           {activeTab === "updates" && (
             <div className="space-y-8">
+              <div className="relative pl-6 border-l-4 border-purple-500">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-purple-500 ring-4 ring-purple-100" />
+                <h3 className="font-black text-slate-800 text-xl mb-1">v2.5 - Lucky Spin Update</h3>
+                <p className="text-purple-600 text-xs font-bold uppercase tracking-widest mb-1">Released Today at 9:00 PM</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-4">📅 January 4, 2026</p>
+
+                <div className="space-y-4 mb-8">
+                  <div className="bg-purple-50 p-3 rounded-xl border border-purple-100">
+                    <p className="font-bold text-purple-800 text-sm mb-1">🎡 Scam Wheel Economy</p>
+                    <p className="text-purple-700/80 text-xs">
+                      Replaced Daily Rewards with a <strong>Lucky Spin Wheel</strong>. Win up to 500 XP! (3 Spins per 12h session).
+                    </p>
+                  </div>
+
+                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100">
+                    <p className="font-bold text-orange-800 text-sm mb-1">🔥 Repair Paywall</p>
+                    <p className="text-orange-700/80 text-xs">
+                      Broken streaks now lock the wheel. Repair instantly for 2.00 GHS to keep spinning.
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                    <p className="font-bold text-blue-800 text-sm mb-1">👀 Guest Teasers</p>
+                    <p className="text-blue-700/80 text-xs">
+                      Guests can now see the wheel but must sign in to play. A true teaser!
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="relative pl-6 border-l-4 border-indigo-500">
                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
                 <h3 className="font-black text-slate-800 text-xl mb-1">v2.4 - Security & Polish</h3>
@@ -3607,7 +3879,7 @@ function AuthChoiceModal({
 
         <div className="relative z-10">
           <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-            <User className="w-10 h-10 text-indigo-600" />
+            <UserIcon className="w-10 h-10 text-indigo-600" />
             <div className="absolute top-1 right-1 bg-green-400 w-4 h-4 rounded-full border-2 border-white animate-ping"></div>
           </div>
 
@@ -3657,7 +3929,7 @@ function AuthPill({ user, onLogin, onLogout }: { user: FirebaseUser | null, onLo
           {user?.photoURL ? (
             <img src={user.photoURL} alt="User" className="w-full h-full rounded-full" />
           ) : (
-            <User className="w-3.5 h-3.5" />
+            <UserIcon className="w-3.5 h-3.5" />
           )}
         </div>
 
