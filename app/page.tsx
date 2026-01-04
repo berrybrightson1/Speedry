@@ -544,6 +544,12 @@ export default function SpeedryConquest() {
 
   // PAYMENT HANDLER (LIFTED)
   const handlePaystackPayment = (amountGHS: number) => {
+    // STRICT GUEST CHECK
+    if (!user) {
+      toast.error("You must be signed in to purchase XP!", { icon: "🔒" })
+      return
+    }
+
     // @ts-ignore
     if (typeof window.PaystackPop === 'undefined') {
       toast.error("Payment system loading... ensure internet connection.")
@@ -553,7 +559,7 @@ export default function SpeedryConquest() {
     // @ts-ignore
     const handler = window.PaystackPop.setup({
       key: 'pk_live_689412f7cc3058bf05f989dec1d3d370da60ccd1',
-      email: `${playerId || 'guest'}@speedry.net`,
+      email: `${user.email || 'user'}@speedry.net`, // Use actual email if available
       amount: amountGHS * 100, // Convert to kobo/pesewas
       currency: 'GHS',
       channels: ['mobile_money', 'card'],
@@ -591,6 +597,7 @@ export default function SpeedryConquest() {
       localStorage.removeItem("speedry_last_reset")
       localStorage.removeItem("speedry_last_warp")
       localStorage.removeItem("speedry_warp_attempts")
+      localStorage.removeItem("speedry_last_active")
 
       // Set new version
       localStorage.setItem("speedry_data_version", CURRENT_VERSION)
@@ -614,6 +621,18 @@ export default function SpeedryConquest() {
       setShowHelp(true)
       localStorage.setItem("speedry_patch_version", PATCH_VERSION)
       // toast.info("New Update Installed! Check out what's changed.", { icon: '🚀' })
+    }
+
+    // STRICT GUEST SESSION CHECK (Reset on Long Return)
+    const lastActive = Number(localStorage.getItem('speedry_last_active') || 0)
+    const THIRTY_MINUTES = 30 * 60 * 1000
+    // If >30m inactive, assume session ended for guest.
+    // Real users will have data restored by Cloud Sync anyway.
+    if (Date.now() - lastActive > THIRTY_MINUTES) {
+      console.log("Session expired. Resetting local guest data.")
+      localStorage.removeItem("speedry_xp")
+      localStorage.removeItem("speedry_best_level")
+      // We do NOT remove 'speedry_welcomed' so they don't see intro again unexpectedly
     }
 
     // Standard Loading
@@ -645,6 +664,7 @@ export default function SpeedryConquest() {
 
   useEffect(() => {
     localStorage.setItem("speedry_xp", xp.toString())
+    localStorage.setItem("speedry_last_active", Date.now().toString()) // Update activity timestamp
   }, [xp])
 
   const handleStartGame = (startLevel: number) => {
@@ -3469,10 +3489,39 @@ function HelpModal({
 
           {activeTab === "updates" && (
             <div className="space-y-8">
+              <div className="relative pl-6 border-l-4 border-indigo-500">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                <h3 className="font-black text-slate-800 text-xl mb-1">v2.4 - Security & Polish</h3>
+                <p className="text-indigo-600 text-xs font-bold uppercase tracking-widest mb-1">Released Today</p>
+                <p className="text-slate-400 text-[10px] font-semibold mb-4">📅 January 4, 2026</p>
+
+                <div className="space-y-4 mb-8">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p className="font-bold text-slate-800 text-sm mb-1">🔒 Enhanced Security</p>
+                    <p className="text-slate-600 text-xs">
+                      Strict Guest Mode: XP purchases are now locked to signed-in users. Auto-reset for guest data after 30 mins of inactivity.
+                    </p>
+                  </div>
+
+                  <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                    <p className="font-bold text-indigo-800 text-sm mb-1">👤 Active Account Switching</p>
+                    <p className="text-indigo-600 text-xs">
+                      New "Select Account" prompt allows easy switching between Google accounts.
+                    </p>
+                  </div>
+
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                    <p className="font-bold text-emerald-800 text-sm mb-1">👋 Smarter Onboarding</p>
+                    <p className="text-emerald-700 text-xs">
+                      Welcome screen now remembers you and won't appear again once you've started.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="relative pl-6 border-l-4 border-emerald-500">
                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
                 <h3 className="font-black text-slate-800 text-xl mb-1">v2.3 - The "Daily" Update</h3>
-                <p className="text-emerald-600 text-xs font-bold uppercase tracking-widest mb-1">Released Today</p>
                 <p className="text-slate-400 text-[10px] font-semibold mb-4">📅 January 3, 2026</p>
 
                 <div className="space-y-4">
