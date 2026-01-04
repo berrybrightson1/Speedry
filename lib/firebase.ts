@@ -17,5 +17,6 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 const database = getDatabase(app)
 const auth = getAuth(app)
 const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 export { database, ref, set, onValue, update, remove, push, runTransaction, query, orderByChild, equalTo, get, auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged }
